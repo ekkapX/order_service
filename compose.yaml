@@ -1,41 +1,98 @@
 services:
   postgres:
     image: postgres:latest
+    container_name: l0-postgres
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: orders_db
     ports:
       - "5432:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - l0-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d orders_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
+    container_name: l0-zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+    networks:
+      - l0-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo 'ruok' | nc -w 2 localhost 2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:5.5.7
+    container_name: l0-kafka
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        KAFKA_BROKER_ID: 1
+        KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+        KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+        KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+        KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+        KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+        KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     ports:
       - "9092:9092"
+    networks:
+      - l0-network
+    restart: unless-stopped
+
   redis:
     image: redis:latest
+    container_name: l0-redis
     ports:
       - "6379:6379"
+    networks:
+      - l0-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
   server:
     build:
       context: .
+    container_name: l0-server
     ports:
       - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: orders_db
     depends_on:
-      - postgres
-      - kafka
-      - redis
+      postgres:
+        condition: service_healthy 
+      redis:
+        condition: service_healthy
+    networks:
+      - l0-network
+    restart: unless-stopped
+
+networks:
+  l0-network:
+    driver: bridge
 

@@ -10,7 +10,7 @@ import (
 )
 
 func NewDB(logger *zap.Logger) (*sql.DB, error) {
-	db, err := sql.Open("postgres", "host=localhost port=5432 user=user password=password dbname=orders_db sslmode=disable")
+	db, err := sql.Open("postgres", "host=postgres port=5432 user=user password=password dbname=orders_db sslmode=disable")
 	if err != nil {
 		logger.Error("Failed to open DB connection", zap.Error(err))
 		return nil, err
@@ -30,6 +30,17 @@ func SaveOrder(db *sql.DB, order model.Order, logger *zap.Logger) error {
 	}
 
 	logger.Info("Starting to save order", zap.String("order_uid", order.OrderUID))
+
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM orders WHERE order_uid = $1)", order.OrderUID).Scan(&exists)
+	if err != nil {
+		logger.Error("Failed to check if order exists", zap.Error(err), zap.String("order_uid", order.OrderUID))
+		return err
+	}
+	if exists {
+		logger.Info("Order already exists, skipping", zap.String("order_uid", order.OrderUID))
+		return nil
+	}
 
 	tx, err := db.Begin()
 	if err != nil {
