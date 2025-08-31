@@ -106,3 +106,68 @@ func SaveOrder(db *sql.DB, order model.Order, logger *zap.Logger) error {
 	logger.Info("Order saved successfully", zap.String("order_uid", order.OrderUID))
 	return nil
 }
+
+func GetOrder(dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order, error) {
+	var order model.Order
+
+	err := dbConn.QueryRow(`
+	SELECT order_uid, track_number, order_entry, locale, internal_signature, customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
+	FROM orders
+	WHERE order_uid = $1`,
+		orderUID,
+	).Scan(&order.OrderUID, &order.TrackNumber, &order.OrderEntry, &order.Locale, &order.InternalSignature, &order.CustomerID, &order.DeliveryService, &order.Shardkey, &order.SmID, &order.DateCreated, &order.OofShard)
+	if err == sql.ErrNoRows {
+		logger.Info("Order not found in DB", zap.String("order_uid", orderUID))
+		return model.Order{}, fmt.Errorf("order not found")
+	} else if err != nil {
+		logger.Error("Failed to query order from DB", zap.Error(err), zap.String("order_uid", orderUID))
+		return model.Order{}, err
+	}
+
+	err = dbConn.QueryRow(`
+        SELECT name, phone, zip, city, adress, region, email
+        FROM delivery
+        WHERE order_uid = $1`,
+		orderUID,
+	).Scan(&order.Delivery.Name, &order.Delivery.Phone, &order.Delivery.Zip, &order.Delivery.City, &order.Delivery.Adress, &order.Delivery.Region, &order.Delivery.Email)
+	if err != nil {
+		logger.Error("Failed to query delivery from DB", zap.Error(err), zap.String("order_uid", orderUID))
+		return model.Order{}, err
+	}
+
+	err = dbConn.QueryRow(`
+        SELECT transaction, request_id, currency, provider, amount, payment_dt, bank, delivery_cost, goods_total, custom_fee
+        FROM payment
+        WHERE order_uid = $1`,
+		orderUID,
+	).Scan(&order.Payment.Transaction, &order.Payment.RequestID, &order.Payment.Currency, &order.Payment.Provider, &order.Payment.Amount, &order.Payment.PaymentDt, &order.Payment.Bank, &order.Payment.DeliveryCost, &order.Payment.GoodsTotal, &order.Payment.CustomFee)
+	if err != nil {
+		logger.Error("Failed to query payment from DB", zap.Error(err), zap.String("order_uid", orderUID))
+		return model.Order{}, err
+	}
+
+	rows, err := dbConn.Query(`
+        SELECT chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status
+        FROM items
+        WHERE order_uid = $1`,
+		orderUID,
+	)
+	if err != nil {
+		logger.Error("Failed to query items from DB", zap.Error(err), zap.String("order_uid", orderUID))
+		return model.Order{}, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var item model.Item
+		err := rows.Scan(&item.ChrtID, &item.TrackNumber, &item.Price, &item.Rid, &item.Name, &item.Sale, &item.Size, &item.TotalPrice, &item.NmID, &item.Brand, &item.Status)
+		if err != nil {
+			logger.Error("Failde to scan item from DB", zap.Error(err), zap.String("order_uid", orderUID))
+			return model.Order{}, err
+		}
+		order.Items = append(order.Items, item)
+	}
+	logger.Info("Order retrieved from DB", zap.String("order_uid", orderUID))
+	return order, nil
+
+}

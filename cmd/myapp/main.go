@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"l0/internal/api"
 	"l0/internal/cache"
 	"l0/internal/db"
 	"l0/internal/kafka"
@@ -80,10 +81,12 @@ func main() {
 	}
 	logger.Info("Test order saved")
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	ctx := context.Background()
 	go kafka.ConsumeOrders(ctx, "kafka:9092", "orders", "order-group", sqldb, redisCache, logger)
-	for {
+	apiServer := api.NewServer(redisCache, sqldb, logger)
+	if err := apiServer.Start(":8080"); err != nil {
+		logger.Fatal("Failed to start HTTTP server", zap.Error(err))
 	}
 }
