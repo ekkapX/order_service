@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Order Service</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
+        .container { max-width: 600px; margin: auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        .input-group { display: flex; margin-bottom: 20px; }
+        input { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 20px; font-size: 16px; background-color: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; }
+        button:hover { background-color: #218838; }
+        #result { margin-top: 20px; padding: 10px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; white-space: pre-wrap; font-family: monospace; }
+        .error { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Order Lookup</h1>
+        <div class="input-group">
+            <input type="text" id="order_uid" placeholder="Enter order_uid (e.g., test789)">
+            <button onclick="fetchOrder()">Get Order</button>
+        </div>
+        <div id="result"></div>
+    </div>
+    <script>
+        async function fetchOrder() {
+            const orderUid = document.getElementById('order_uid').value.trim();
+            const resultDiv = document.getElementById('result');
+            if (!orderUid) {
+                resultDiv.innerText = 'Please enter an order_uid';
+                resultDiv.classList.add('error');
+                return;
+            }
+            resultDiv.classList.remove('error');
+            resultDiv.innerText = 'Loading...';
+            try {
+                const response = await fetch(`/order/${orderUid}`);
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to fetch order');
+                }
+                const order = await response.json();
+                resultDiv.innerText = JSON.stringify(order, null, 2);
+            } catch (error) {
+                resultDiv.innerText = `Error: ${error.message}`;
+                resultDiv.classList.add('error');
+            }
+        }
+    </script>
+</body>
+</html

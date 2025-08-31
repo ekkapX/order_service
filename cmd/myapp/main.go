@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
+	"l0/internal/api"
+	"l0/internal/cache"
 	"l0/internal/db"
+	"l0/internal/kafka"
 	"l0/internal/model"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -16,6 +21,8 @@ func main() {
 		logger.Fatal("DB connection failed", zap.Error(err))
 	}
 	defer sqldb.Close()
+
+	redisCache := cache.NewCache("l0-redis:6379", logger)
 
 	order := model.Order{
 		OrderUID:    "test789",
@@ -69,8 +76,17 @@ func main() {
 		logger.Error("Failed to save order", zap.Error(err))
 		return
 	}
-
+	if err := redisCache.SaveOrder(context.Background(), order); err != nil {
+		logger.Warn("Failed to cache test order, continuing without cache", zap.Error(err))
+	}
 	logger.Info("Test order saved")
-	for {
+
+	time.Sleep(30 * time.Second)
+
+	ctx := context.Background()
+	go kafka.ConsumeOrders(ctx, "kafka:9092", "orders", "order-group", sqldb, redisCache, logger)
+	apiServer := api.NewServer(redisCache, sqldb, logger)
+	if err := apiServer.Start(":8080"); err != nil {
+		logger.Fatal("Failed to start HTTTP server", zap.Error(err))
 	}
 }
