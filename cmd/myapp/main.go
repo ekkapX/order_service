@@ -24,6 +24,12 @@ func main() {
 
 	redisCache := cache.NewCache("l0-redis:6379", logger)
 
+	ctx := context.Background()
+	if err := redisCache.RestoreFromDB(ctx, sqldb); err != nil {
+		logger.Error("Failed to restore cache from DB", zap.Error(err))
+	}
+	logger.Info("Cache restoration attempted")
+
 	order := model.Order{
 		OrderUID:    "test789",
 		TrackNumber: "TRACK789",
@@ -83,8 +89,8 @@ func main() {
 
 	time.Sleep(30 * time.Second)
 
-	ctx := context.Background()
 	go kafka.ConsumeOrders(ctx, "kafka:9092", "orders", "order-group", sqldb, redisCache, logger)
+
 	apiServer := api.NewServer(redisCache, sqldb, logger)
 	if err := apiServer.Start(":8080"); err != nil {
 		logger.Fatal("Failed to start HTTTP server", zap.Error(err))
