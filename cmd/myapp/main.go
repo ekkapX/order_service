@@ -7,7 +7,6 @@ import (
 	"l0/internal/db"
 	"l0/internal/kafka"
 	"l0/internal/model"
-	"time"
 
 	"go.uber.org/zap"
 )
@@ -86,8 +85,6 @@ func main() {
 		logger.Warn("Failed to cache test order, continuing without cache", zap.Error(err))
 	}
 	logger.Info("Test order saved")
-
-	time.Sleep(30 * time.Second)
 
 	go kafka.ConsumeOrders(ctx, "kafka:9092", "orders", "order-group", sqldb, redisCache, logger)
 

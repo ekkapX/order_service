@@ -3,5 +3,6 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go build -o main ./cmd/myapp
-CMD ["./main"]
+RUN go build -o server ./cmd/myapp/main.go
+COPY wait-for-it.sh .
+CMD ["./server"]
