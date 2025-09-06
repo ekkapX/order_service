@@ -77,7 +77,7 @@ func (c *Cache) GetOrder(ctx context.Context, orderUID string) (*model.Order, er
 
 func (c *Cache) RestoreFromDB(ctx context.Context, dbConn *sql.DB) error {
 	rows, err := dbConn.QueryContext(ctx, `
-	SELECT order_uid, track_number, entry, locale, internal_signature, customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
+	SELECT order_uid, track_number, order_entry, locale, internal_signature, customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
 	FROM orders`)
 	if err != nil {
 		c.logger.Error("Failed to query orders for cache restore", zap.Error(err))
@@ -98,7 +98,7 @@ func (c *Cache) RestoreFromDB(ctx context.Context, dbConn *sql.DB) error {
 		}
 
 		err = dbConn.QueryRowContext(ctx, `
-			SELECT name, phone, zip, city, address, region, email
+			SELECT name, phone, zip, city, adress, region, email
 			FROM delivery
 			WHERE order_uid = $1`, order.OrderUID).Scan(
 			&order.Delivery.Name, &order.Delivery.Phone, &order.Delivery.Zip,

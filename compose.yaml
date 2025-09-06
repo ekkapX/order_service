@@ -92,6 +92,7 @@ services:
     networks:
       - l0-network
     restart: unless-stopped
+    command: ["./wait-for-it.sh", "kafka:9092", "--timeout=60", "--", "./server"]
 
 networks:
   l0-network:
