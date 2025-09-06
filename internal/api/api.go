@@ -19,7 +19,9 @@ type Server struct {
 }
 
 func NewServer(cache *cache.Cache, dbConn *sql.DB, logger *zap.Logger) *Server {
+	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	r.SetTrustedProxies(nil)
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
