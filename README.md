@@ -2,7 +2,7 @@
 
 ![Go](https://img.shields.io/badge/Go-1.24-blue) ![Docker](https://img.shields.io/badge/Docker-Compose-blue) ![Kafka](https://img.shields.io/badge/Kafka-3.3-green) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue) ![Redis](https://img.shields.io/badge/Redis-7-red)
 
-L0 — это система обработки заказов, написанная на Go, которая принимает заказы через Kafka, сохраняет их в PostgreSQL и кэширует в Redis. Проект предоставляет HTTP API и веб-интерфейс для получения деталей заказов. Данные сохраняются персистентно, а кэш восстанавливается после перезапуска сервера, что обеспечивает надёжность и быстрый доступ к данным.
+L0 — это система обработки заказов, написанная на Go в рамках выполнения нулевого уровня Техношколы ВБ, которая принимает заказы через Kafka, сохраняет их в PostgreSQL и кэширует в Redis. Проект предоставляет HTTP API и веб-интерфейс для получения деталей заказов. Данные сохраняются персистентно, а кэш восстанавливается после перезапуска сервера, что обеспечивает надёжность и быстрый доступ к данным.
 
 ## Возможности
 
@@ -34,7 +34,7 @@ L0 — это система обработки заказов, написанн
 
 1. **Клонируйте репозиторий**:
    ```bash
-   git clone https://github.com/<your-username>/l0.git
+   git clone https://github.com/ekkapX/l0.git
    cd l0
 
 2. **Скачайте wait-for-it.sh**:
@@ -54,3 +54,76 @@ L0 — это система обработки заказов, написанн
 
 3. **Откройте веб-интерфейс**:
    Перейдите по адресу http://localhost:8080 в браузере.
+
+## Работа с системой
+
+### Отправка тестового заказа в Kafka
+   Для тестирования отправки заказа используйте консоль Kafka:
+   ```bash 
+   docker exec -it l0-kafka kafka-console-producer --bootstrap-server kafka:9092 --topic orders
+
+   Пример ввода
+   ```json
+   {
+    "order_uid": "test456",
+    "track_number": "TEST456",
+    "order_entry": "test",
+    "delivery": {
+        "name": "John Doe",
+        "phone": "+1234567890",
+        "zip": "123456",
+        "city": "Moscow",
+        "adress": "Lenin St 10",
+        "region": "Central",
+        "email": "john@example.com"
+    },
+    "payment": {
+        "transaction": "test456",
+        "currency": "USD",
+        "provider": "wbpay",
+        "amount": 2000,
+        "payment_dt": 1637907728,
+        "bank": "sber",
+        "delivery_cost": 1000,
+        "goods_total": 1000,
+        "custom_fee": 0
+    },
+    "items": [
+        {
+            "chrt_id": 9934931,
+            "track_number": "TEST456",
+            "price": 500,
+            "rid": "item456",
+            "name": "Lipstick",
+            "sale": 20,
+            "size": "0",
+            "total_price": 400,
+            "nm_id": 2389213,
+            "brand": "Maybelline",
+            "status": 202
+        }
+    ],
+    "locale": "en",
+    "customer_id": "test2",
+    "delivery_service": "meest",
+    "shardkey": "8",
+    "sm_id": 98,
+    "date_created": "2021-11-26T06:22:20Z",
+    "oof_shard": "2"
+   }
+
+### Проверьте веб интерфейсы
+Откройте http://localhost:8080/ в браузере.
+Введите order_uid (например, test789, test123, test456) для просмотра деталей заказа.
+Введите неверный order_uid (например, invalid123) для проверки обработки ошибок.
+
+### Проверьте API
+curl http://localhost:8080/order/test789
+curl http://localhost:8080/order/test456
+
+## Благодарности
+
+Проект создан как учебный для изучения распределительных систем и микросервисов
+Безусловно, спасибо ИИ, без него я бы не справился.
+Это мой первый подобный опыт и я рад, что довел его до работающего состояния.
+Спасибо за испытание, Техношкола WB!
