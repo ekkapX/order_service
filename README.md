@@ -27,7 +27,7 @@ L0 — это система обработки заказов, написанн
 ## Требования
 
 - [Docker](https://www.docker.com/get-started) и [Docker Compose](https://docs.docker.com/compose/install/)
-- [Go](https://golang.org/dl/) 1.24 или выше (для локальной разработки)
+- [Go](https://golang.org/dl/) 1.24 или выше
 - [Git](https://git-scm.com/downloads)
 
 ## Установка
