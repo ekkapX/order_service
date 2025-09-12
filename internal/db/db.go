@@ -51,10 +51,10 @@ func SaveOrder(db *sql.DB, order model.Order, logger *zap.Logger) error {
 
 	_, err = tx.Exec(`
         INSERT INTO orders (
-            order_uid, track_number, order_entry, locale, internal_signature, 
+            order_uid, track_number, entry, locale, internal_signature, 
             customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-		order.OrderUID, order.TrackNumber, order.OrderEntry, order.Locale, order.InternalSignature,
+		order.OrderUID, order.TrackNumber, order.Entry, order.Locale, order.InternalSignature,
 		order.CustomerID, order.DeliveryService, order.Shardkey, order.SmID, order.DateCreated, order.OofShard)
 	if err != nil {
 		logger.Error("Failed to insert into orders", zap.Error(err), zap.String("order_uid", order.OrderUID))
@@ -63,10 +63,10 @@ func SaveOrder(db *sql.DB, order model.Order, logger *zap.Logger) error {
 
 	_, err = tx.Exec(`
         INSERT INTO delivery (
-            order_uid, name, phone, zip, city, adress, region, email
+            order_uid, name, phone, zip, city, address, region, email
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		order.OrderUID, order.Delivery.Name, order.Delivery.Phone, order.Delivery.Zip, order.Delivery.City,
-		order.Delivery.Adress, order.Delivery.Region, order.Delivery.Email)
+		order.Delivery.Address, order.Delivery.Region, order.Delivery.Email)
 	if err != nil {
 		logger.Error("Failed to insert into delivery", zap.Error(err), zap.String("order_uid", order.OrderUID))
 		return err
@@ -111,11 +111,11 @@ func GetOrder(dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order,
 	var order model.Order
 
 	err := dbConn.QueryRow(`
-	SELECT order_uid, track_number, order_entry, locale, internal_signature, customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
+	SELECT order_uid, track_number, entry, locale, internal_signature, customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
 	FROM orders
 	WHERE order_uid = $1`,
 		orderUID,
-	).Scan(&order.OrderUID, &order.TrackNumber, &order.OrderEntry, &order.Locale, &order.InternalSignature, &order.CustomerID, &order.DeliveryService, &order.Shardkey, &order.SmID, &order.DateCreated, &order.OofShard)
+	).Scan(&order.OrderUID, &order.TrackNumber, &order.Entry, &order.Locale, &order.InternalSignature, &order.CustomerID, &order.DeliveryService, &order.Shardkey, &order.SmID, &order.DateCreated, &order.OofShard)
 	if err == sql.ErrNoRows {
 		logger.Info("Order not found in DB", zap.String("order_uid", orderUID))
 		return model.Order{}, fmt.Errorf("order not found")
@@ -125,11 +125,11 @@ func GetOrder(dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order,
 	}
 
 	err = dbConn.QueryRow(`
-        SELECT name, phone, zip, city, adress, region, email
+        SELECT name, phone, zip, city, address, region, email
         FROM delivery
         WHERE order_uid = $1`,
 		orderUID,
-	).Scan(&order.Delivery.Name, &order.Delivery.Phone, &order.Delivery.Zip, &order.Delivery.City, &order.Delivery.Adress, &order.Delivery.Region, &order.Delivery.Email)
+	).Scan(&order.Delivery.Name, &order.Delivery.Phone, &order.Delivery.Zip, &order.Delivery.City, &order.Delivery.Address, &order.Delivery.Region, &order.Delivery.Email)
 	if err != nil {
 		logger.Error("Failed to query delivery from DB", zap.Error(err), zap.String("order_uid", orderUID))
 		return model.Order{}, err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"l0/internal/cache"
 	"l0/internal/db"
 	"l0/internal/model"
@@ -12,6 +13,19 @@ import (
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
+
+func validateOrder(order model.Order) error {
+	if order.OrderUID == "" {
+		return fmt.Errorf("order_uid is empty")
+	}
+	if len(order.Items) == 0 {
+		return fmt.Errorf("items list is empty")
+	}
+	if order.Payment.Amount <= 0 {
+		return fmt.Errorf("payment amount must be postivie")
+	}
+	return nil
+}
 
 func ConsumeOrders(ctx context.Context, broker, topic, groupID string, dbConn *sql.DB, cache *cache.Cache, logger *zap.Logger) {
 	reader := kafka.NewReader(kafka.ReaderConfig{
@@ -36,6 +50,12 @@ func ConsumeOrders(ctx context.Context, broker, topic, groupID string, dbConn *s
 		var order model.Order
 		if err := json.Unmarshal(msg.Value, &order); err != nil {
 			logger.Error("Failed to unmarshal order", zap.Error(err), zap.String("message", string(msg.Value)))
+			continue
+		}
+
+		if err := validateOrder(order); err != nil {
+			logger.Warn("Invalid order data", zap.Error(err), zap.String("order_uid", order.OrderUID))
+			reader.CommitMessages(ctx, msg)
 			continue
 		}
 

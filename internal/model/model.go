@@ -3,7 +3,7 @@ package model
 type Order struct {
 	OrderUID          string   `json:"order_uid"`
 	TrackNumber       string   `json:"track_number"`
-	OrderEntry        string   `json:"order_entry"`
+	Entry             string   `json:"entry"`
 	Delivery          Delivery `json:"delivery"`
 	Payment           Payment  `json:"payment"`
 	Items             []Item   `json:"items"`
@@ -18,13 +18,13 @@ type Order struct {
 }
 
 type Delivery struct {
-	Name   string `json:"name"`
-	Phone  string `json:"phone"`
-	Zip    string `json:"zip"`
-	City   string `json:"city"`
-	Adress string `json:"adress"`
-	Region string `json:"region"`
-	Email  string `json:"email"`
+	Name    string `json:"name"`
+	Phone   string `json:"phone"`
+	Zip     string `json:"zip"`
+	City    string `json:"city"`
+	Address string `json:"address"`
+	Region  string `json:"region"`
+	Email   string `json:"email"`
 }
 
 type Payment struct {
