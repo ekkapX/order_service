@@ -1,7 +1,7 @@
 CREATE TABLE orders (
             order_uid VARCHAR(50) PRIMARY KEY,
             track_number VARCHAR(50),
-            order_entry VARCHAR(10),
+            entry VARCHAR(10),
             locale VARCHAR(10),
             internal_signature VARCHAR(50),
             customer_id VARCHAR(50),
@@ -18,7 +18,7 @@ CREATE TABLE orders (
             phone VARCHAR(20),
             zip VARCHAR(20),
             city VARCHAR(100),
-            adress VARCHAR(200),
+            address VARCHAR(200),
             region VARCHAR(100),
             email VARCHAR(100),
             FOREIGN KEY (order_uid) REFERENCES orders(order_uid)  

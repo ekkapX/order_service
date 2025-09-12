@@ -32,15 +32,15 @@ func main() {
 	order := model.Order{
 		OrderUID:    "test789",
 		TrackNumber: "TRACK789",
-		OrderEntry:  "WBIL",
+		Entry:       "WBIL",
 		Delivery: model.Delivery{
-			Name:   "Jane Doe",
-			Phone:  "+987654321",
-			Zip:    "654321",
-			City:   "Berlin",
-			Adress: "456 Street",
-			Region: "West",
-			Email:  "jane@example.com",
+			Name:    "Jane Doe",
+			Phone:   "+987654321",
+			Zip:     "654321",
+			City:    "Berlin",
+			Address: "456 Street",
+			Region:  "West",
+			Email:   "jane@example.com",
 		},
 		Payment: model.Payment{
 			Transaction:  "trans123",
