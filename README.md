@@ -68,13 +68,13 @@ L0 — это система обработки заказов, написанн
    {
     "order_uid": "test456",
     "track_number": "TEST456",
-    "order_entry": "test",
+    "entry": "test",
     "delivery": {
         "name": "John Doe",
         "phone": "+1234567890",
         "zip": "123456",
         "city": "Moscow",
-        "adress": "Lenin St 10",
+        "address": "Lenin St 10",
         "region": "Central",
         "email": "john@example.com"
     },
