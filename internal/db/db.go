@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+
 	"l0/internal/model"
 
 	_ "github.com/lib/pq"
@@ -169,5 +170,4 @@ func GetOrder(dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order,
 	}
 	logger.Info("Order retrieved from DB", zap.String("order_uid", orderUID))
 	return order, nil
-
 }

@@ -2,10 +2,10 @@ package api
 
 import (
 	"database/sql"
+	"net/http"
 
 	"l0/internal/cache"
 	"l0/internal/db"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -70,7 +70,6 @@ func (s *Server) handleGetOrder(c *gin.Context) {
 
 	if err := s.cache.SaveOrder(c.Request.Context(), *order); err != nil {
 		s.logger.Error("Failed to cache order", zap.Error(err), zap.String("order_uid", orderUID))
-
 	}
 
 	s.logger.Info("Order retrieved from DB and cached", zap.String("order_uid", orderUID))

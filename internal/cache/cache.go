@@ -4,8 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"l0/internal/model"
 	"time"
+
+	"l0/internal/model"
 
 	"github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
@@ -142,7 +143,7 @@ func (c *Cache) RestoreFromDB(ctx context.Context, dbConn *sql.DB) error {
 			}
 			order.Items = append(order.Items, item)
 		}
-		itemRows.Close()
+		err = itemRows.Close()
 
 		if err := c.SaveOrder(ctx, order); err != nil {
 			c.logger.Error("Failed to cache order during restore", zap.Error(err))
