@@ -2,11 +2,12 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"l0/internal/model"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
 
@@ -48,7 +49,11 @@ func SaveOrder(db *sql.DB, order model.Order, logger *zap.Logger) error {
 		logger.Error("Failed to start transaction", zap.Error(err))
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+			logger.Error("Failed to rollback transaction", zap.Error(err))
+		}
+	}()
 
 	_, err = tx.Exec(`
         INSERT INTO orders (
@@ -117,7 +122,7 @@ func GetOrder(dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order,
 	WHERE order_uid = $1`,
 		orderUID,
 	).Scan(&order.OrderUID, &order.TrackNumber, &order.Entry, &order.Locale, &order.InternalSignature, &order.CustomerID, &order.DeliveryService, &order.Shardkey, &order.SmID, &order.DateCreated, &order.OofShard)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("Order not found in DB", zap.String("order_uid", orderUID))
 		return model.Order{}, fmt.Errorf("order not found")
 	} else if err != nil {
@@ -157,7 +162,11 @@ func GetOrder(dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order,
 		logger.Error("Failed to query items from DB", zap.Error(err), zap.String("order_uid", orderUID))
 		return model.Order{}, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			logger.Error("Failed to close rows", zap.Error(err))
+		}
+	}()
 
 	for rows.Next() {
 		var item model.Item

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"l0/internal/model"
@@ -58,7 +59,7 @@ func (c *Cache) SaveOrder(ctx context.Context, order model.Order) error {
 
 func (c *Cache) GetOrder(ctx context.Context, orderUID string) (*model.Order, error) {
 	data, err := c.client.Get(ctx, orderUID).Bytes()
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		c.logger.Info("Order not found in cache", zap.String("order_uid", orderUID))
 		return nil, nil
 	}
@@ -84,7 +85,12 @@ func (c *Cache) RestoreFromDB(ctx context.Context, dbConn *sql.DB) error {
 		c.logger.Error("Failed to query orders for cache restore", zap.Error(err))
 		return err
 	}
-	defer rows.Close()
+
+	defer func() {
+		if err := rows.Close(); err != nil {
+			c.logger.Error("Failed to close rows", zap.Error(err))
+		}
+	}()
 
 	for rows.Next() {
 		var order model.Order
@@ -143,7 +149,10 @@ func (c *Cache) RestoreFromDB(ctx context.Context, dbConn *sql.DB) error {
 			}
 			order.Items = append(order.Items, item)
 		}
-		err = itemRows.Close()
+		if err = itemRows.Close(); err != nil {
+			c.logger.Error("Failed to close item rows for cache restore", zap.Error(err), zap.String("order_uid", order.OrderUID))
+			continue
+		}
 
 		if err := c.SaveOrder(ctx, order); err != nil {
 			c.logger.Error("Failed to cache order during restore", zap.Error(err))

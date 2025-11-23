@@ -1,8 +1,8 @@
-FROM golang:1.24.0
+FROM golang:1.25.1
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go build -o server ./cmd/myapp/main.go
+RUN go build -o server ./cmd/app/main.go
 COPY wait-for-it.sh .
 CMD ["./server"]

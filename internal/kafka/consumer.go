@@ -37,7 +37,11 @@ func ConsumeOrders(ctx context.Context, broker, topic, groupID string, dbConn *s
 		MaxBytes: 10e6,
 		MaxWait:  1 * time.Second,
 	})
-	defer reader.Close()
+	defer func() {
+		if err := reader.Close(); err != nil {
+			logger.Error("Failed to close Kafka reader", zap.Error(err))
+		}
+	}()
 
 	logger.Info("Starting Kafka consumer", zap.String("topic", topic), zap.String("groupID", groupID))
 
@@ -56,7 +60,9 @@ func ConsumeOrders(ctx context.Context, broker, topic, groupID string, dbConn *s
 
 		if err := validateOrder(order); err != nil {
 			logger.Warn("Invalid order data", zap.Error(err), zap.String("order_uid", order.OrderUID))
-			reader.CommitMessages(ctx, msg)
+			if err := reader.CommitMessages(ctx, msg); err != nil {
+				logger.Error("Failed to commit message", zap.Error(err), zap.String("order_uid", order.OrderUID))
+			}
 			continue
 		}
 

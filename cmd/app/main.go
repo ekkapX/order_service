@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"l0/internal/api"
 	"l0/internal/cache"
@@ -12,14 +14,27 @@ import (
 )
 
 func main() {
-	logger, _ := zap.NewProduction()
-	defer logger.Sync()
+	logger, err := zap.NewProduction()
+	if err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			fmt.Fprintf(os.Stderr, "logger sync failed: %v\n", err)
+		}
+	}()
 
 	sqldb, err := db.NewDB(logger)
 	if err != nil {
 		logger.Fatal("DB connection failed", zap.Error(err))
 	}
-	defer sqldb.Close()
+
+	defer func() {
+		if err := sqldb.Close(); err != nil {
+			logger.Error("Failed to close DB connection", zap.Error(err))
+		}
+	}()
 
 	redisCache := cache.NewCache("l0-redis:6379", logger)
 
