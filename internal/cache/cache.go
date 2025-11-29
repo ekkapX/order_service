@@ -168,3 +168,11 @@ func (c *Cache) RestoreFromDB(ctx context.Context, dbConn *sql.DB) error {
 	c.logger.Info("Cache restored from DB")
 	return nil
 }
+
+func (c *Cache) Close() error {
+	if err := c.client.Close(); err != nil {
+		c.logger.Error("Failed to close Redis client", zap.Error(err))
+		return err
+	}
+	return nil
+}

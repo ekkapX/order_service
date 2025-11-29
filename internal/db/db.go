@@ -7,12 +7,12 @@ import (
 
 	"l0/internal/model"
 
-	_ "github.com/jackc/pgx/v5"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 )
 
 func NewDB(logger *zap.Logger) (*sql.DB, error) {
-	db, err := sql.Open("postgres", "host=postgres port=5432 user=user password=password dbname=orders_db sslmode=disable")
+	db, err := sql.Open("pgx", "host=postgres port=5432 user=user password=password dbname=orders_db sslmode=disable")
 	if err != nil {
 		logger.Error("Failed to open DB connection", zap.Error(err))
 		return nil, err
