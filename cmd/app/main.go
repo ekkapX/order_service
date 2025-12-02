@@ -38,6 +38,8 @@ func main() {
 		logger.Fatal("DB connection failed", zap.Error(err))
 	}
 
+	db.RunMigrations(sqldb, logger)
+
 	redisCache := cache.NewCache("l0-redis:6379", logger)
 
 	if err := redisCache.RestoreFromDB(ctx, sqldb); err != nil {

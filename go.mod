@@ -5,12 +5,15 @@ go 1.25.1
 require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-redis/redis/v8 v8.11.5
+	github.com/pressly/goose/v3 v3.26.0
 	github.com/segmentio/kafka-go v0.4.49
 	go.uber.org/zap v1.27.1
 )
 
 require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/mfridman/interpolate v0.0.2 // indirect
+	github.com/sethvargo/go-retry v0.3.0 // indirect
 	golang.org/x/sync v0.18.0 // indirect
 )
 
