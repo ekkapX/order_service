@@ -2,10 +2,8 @@ services:
   postgres:
     image: postgres:latest
     container_name: l0-postgres
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: orders_db
+    env_file:
+      - .env
     ports:
       - "5432:5432"
     volumes:
@@ -15,7 +13,7 @@ services:
       - l0-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d orders_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -47,7 +45,7 @@ services:
         KAFKA_BROKER_ID: 1
         KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
         KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-        KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+        KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${KAFKA_BROKER}
         KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
         KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
         KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -76,14 +74,9 @@ services:
     build:
       context: .
     container_name: l0-server
+    env_file: .env
     ports:
       - "8080:8080"
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: user
-      DB_PASSWORD: password
-      DB_NAME: orders_db
     depends_on:
       postgres:
         condition: service_healthy 
@@ -94,7 +87,7 @@ services:
     networks:
       - l0-network
     restart: unless-stopped
-    command: ["./wait-for-it.sh", "kafka:9092", "--timeout=60", "--", "./server"]
+    command: ["./wait-for-it.sh", "${KAFKA_BROKER}", "--timeout=60", "--", "./server"]
 
 networks:
   l0-network:

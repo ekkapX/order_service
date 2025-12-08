@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/caarlos0/env/v11 v11.3.1 
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect

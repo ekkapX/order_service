@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewDB(logger *zap.Logger) (*sql.DB, error) {
-	db, err := sql.Open("pgx", "host=postgres port=5432 user=user password=password dbname=orders_db sslmode=disable")
+func NewDB(dsn string, logger *zap.Logger) (*sql.DB, error) {
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		logger.Error("Failed to open DB connection", zap.Error(err))
 		return nil, err

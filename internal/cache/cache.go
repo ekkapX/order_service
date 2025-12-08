@@ -30,7 +30,7 @@ func NewCache(addr string, logger *zap.Logger) *Cache {
 	})
 
 	ctx := context.Background()
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		_, err := client.Ping(ctx).Result()
 		if err == nil {
 			logger.Info("Connected to Redis", zap.String("addr", addr))
