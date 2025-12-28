@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"net/http"
 
-	"l0/internal/cache"
-	"l0/internal/db"
+	"l0/internal/infrastructure/cache"
+	"l0/internal/infrastructure/db"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"

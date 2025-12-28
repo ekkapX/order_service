@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"l0/internal/applicaiton/validation"
-	"l0/internal/cache"
-	"l0/internal/db"
-	"l0/internal/domain"
+	"l0/internal/domain/model"
+	"l0/internal/infrastructure/cache"
+	"l0/internal/infrastructure/db"
 
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
@@ -47,7 +47,7 @@ func ConsumeOrders(ctx context.Context, wg *sync.WaitGroup, broker, topic, group
 			continue
 		}
 
-		var order domain.Order
+		var order model.Order
 		if err := json.Unmarshal(msg.Value, &order); err != nil {
 			logger.Error("Failed to unmarshal order", zap.Error(err), zap.String("message", string(msg.Value)))
 			continue

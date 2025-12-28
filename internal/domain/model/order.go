@@ -1,4 +1,4 @@
-package domain
+package model
 
 type Order struct {
 	OrderUID          string   `json:"order_uid" validate:"required"`

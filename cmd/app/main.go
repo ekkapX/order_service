@@ -11,10 +11,10 @@ import (
 	"syscall"
 
 	"l0/internal/api"
-	"l0/internal/cache"
-	"l0/internal/config"
-	"l0/internal/db"
-	"l0/internal/kafka"
+	"l0/internal/infrastructure/cache"
+	"l0/internal/infrastructure/config"
+	"l0/internal/infrastructure/db"
+	"l0/internal/infrastructure/messaging/kafka"
 
 	"go.uber.org/zap"
 )
