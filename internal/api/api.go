@@ -1,27 +1,31 @@
 package api
 
 import (
+	"context"
 	"database/sql"
-
-	"l0/internal/cache"
-	"l0/internal/db"
 	"net/http"
+
+	"l0/internal/infrastructure/cache"
+	"l0/internal/infrastructure/db"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
 type Server struct {
-	cache  *cache.Cache
-	dbConn *sql.DB
-	logger *zap.Logger
-	router *gin.Engine
+	cache      *cache.Cache
+	dbConn     *sql.DB
+	logger     *zap.Logger
+	router     *gin.Engine
+	httpServer *http.Server
 }
 
 func NewServer(cache *cache.Cache, dbConn *sql.DB, logger *zap.Logger) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
-	r.SetTrustedProxies(nil)
+	if err := r.SetTrustedProxies(nil); err != nil {
+		logger.Error("Failed to set trusted proxies", zap.Error(err))
+	}
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
@@ -70,7 +74,6 @@ func (s *Server) handleGetOrder(c *gin.Context) {
 
 	if err := s.cache.SaveOrder(c.Request.Context(), *order); err != nil {
 		s.logger.Error("Failed to cache order", zap.Error(err), zap.String("order_uid", orderUID))
-
 	}
 
 	s.logger.Info("Order retrieved from DB and cached", zap.String("order_uid", orderUID))
@@ -78,6 +81,16 @@ func (s *Server) handleGetOrder(c *gin.Context) {
 }
 
 func (s *Server) Start(addr string) error {
+	s.httpServer = &http.Server{Addr: addr, Handler: s.router}
 	s.logger.Info("Starting HTTP server", zap.String("address", addr))
-	return s.router.Run(addr)
+
+	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return err
+	}
+	return nil
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	s.logger.Info("Shutting down HTTP server...")
+	return s.httpServer.Shutdown(ctx)
 }

@@ -4,30 +4,21 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
-	"l0/internal/cache"
-	"l0/internal/db"
-	"l0/internal/model"
+	"errors"
+	"sync"
 	"time"
+
+	"l0/internal/applicaiton/validation"
+	"l0/internal/domain/model"
+	"l0/internal/infrastructure/cache"
+	"l0/internal/infrastructure/db"
 
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
 
-func validateOrder(order model.Order) error {
-	if order.OrderUID == "" {
-		return fmt.Errorf("order_uid is empty")
-	}
-	if len(order.Items) == 0 {
-		return fmt.Errorf("items list is empty")
-	}
-	if order.Payment.Amount <= 0 {
-		return fmt.Errorf("payment amount must be postivie")
-	}
-	return nil
-}
-
-func ConsumeOrders(ctx context.Context, broker, topic, groupID string, dbConn *sql.DB, cache *cache.Cache, logger *zap.Logger) {
+func ConsumeOrders(ctx context.Context, wg *sync.WaitGroup, broker, topic, groupID string, dbConn *sql.DB, cache *cache.Cache, logger *zap.Logger) {
+	defer wg.Done()
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  []string{broker},
 		Topic:    topic,
@@ -36,14 +27,23 @@ func ConsumeOrders(ctx context.Context, broker, topic, groupID string, dbConn *s
 		MaxBytes: 10e6,
 		MaxWait:  1 * time.Second,
 	})
-	defer reader.Close()
+	defer func() {
+		if err := reader.Close(); err != nil {
+			logger.Error("Failed to close Kafka reader", zap.Error(err))
+		}
+	}()
 
 	logger.Info("Starting Kafka consumer", zap.String("topic", topic), zap.String("groupID", groupID))
 
+	orderValidator := validation.NewValidator()
 	for {
-		msg, err := reader.ReadMessage(ctx)
+		msg, err := reader.FetchMessage(ctx)
 		if err != nil {
-			logger.Error("Failed to read message from Kafka", zap.Error(err))
+			if errors.Is(err, context.Canceled) {
+				logger.Info("Kafka consumer context canceled, stopping...")
+				return
+			}
+			logger.Error("Fetch message from Kafka", zap.Error(err))
 			continue
 		}
 
@@ -53,9 +53,11 @@ func ConsumeOrders(ctx context.Context, broker, topic, groupID string, dbConn *s
 			continue
 		}
 
-		if err := validateOrder(order); err != nil {
+		if err := orderValidator.ValidateOrder(order); err != nil {
 			logger.Warn("Invalid order data", zap.Error(err), zap.String("order_uid", order.OrderUID))
-			reader.CommitMessages(ctx, msg)
+			if err := reader.CommitMessages(ctx, msg); err != nil {
+				logger.Error("Failed to commit message", zap.Error(err), zap.String("order_uid", order.OrderUID))
+			}
 			continue
 		}
 
@@ -66,6 +68,10 @@ func ConsumeOrders(ctx context.Context, broker, topic, groupID string, dbConn *s
 		if err := db.SaveOrder(dbConn, order, logger); err != nil {
 			logger.Error("Failed to save order to DB", zap.Error(err), zap.String("order_uid", order.OrderUID))
 			continue
+		}
+
+		if err := reader.CommitMessages(ctx, msg); err != nil {
+			logger.Error("Failed to commit message", zap.Error(err), zap.String("order_uid", order.OrderUID))
 		}
 
 		logger.Info("Order pocessed from Kafka", zap.String("order_uid", order.OrderUID))

@@ -1,0 +1,62 @@
+version: "2"
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck  
+    - unused
+    - bodyclose
+    - durationcheck
+    - errname
+    - errorlint
+    - goconst
+    - misspell
+    - nakedret
+    - noctx
+    - nolintlint
+    - prealloc
+    - testifylint
+    - unconvert
+    - wastedassign
+    - whitespace
+    - gocritic      
+
+formatters:
+  enable:
+    - gofmt       
+    - goimports   
+linters-settings:
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - hugeParam          
+      - rangeValCopy       
+      - whyNoLint
+      - wrapperFunc
+  nolintlint:
+    require-explanation: true
+    require-specific: true
+  testifylint:
+    disable-all: false
+    enable:
+      - suite-dont-use-pkg
+      - testifylint-error
+      - require-error
+      - suite-extra-assert-call
+      - expected-actual
+  staticcheck:
+    checks: ["all", "-ST1003", "-ST1016", "-SA1019"]  
+
+issues:
+  max-same-issues: 0
+  exclude-use-default: false
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly

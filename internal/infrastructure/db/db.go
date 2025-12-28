@@ -2,15 +2,17 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
-	"l0/internal/model"
 
-	_ "github.com/lib/pq"
+	"l0/internal/domain/model"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 )
 
-func NewDB(logger *zap.Logger) (*sql.DB, error) {
-	db, err := sql.Open("postgres", "host=postgres port=5432 user=user password=password dbname=orders_db sslmode=disable")
+func NewDB(dsn string, logger *zap.Logger) (*sql.DB, error) {
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		logger.Error("Failed to open DB connection", zap.Error(err))
 		return nil, err
@@ -47,7 +49,11 @@ func SaveOrder(db *sql.DB, order model.Order, logger *zap.Logger) error {
 		logger.Error("Failed to start transaction", zap.Error(err))
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+			logger.Error("Failed to rollback transaction", zap.Error(err))
+		}
+	}()
 
 	_, err = tx.Exec(`
         INSERT INTO orders (
@@ -116,7 +122,7 @@ func GetOrder(dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order,
 	WHERE order_uid = $1`,
 		orderUID,
 	).Scan(&order.OrderUID, &order.TrackNumber, &order.Entry, &order.Locale, &order.InternalSignature, &order.CustomerID, &order.DeliveryService, &order.Shardkey, &order.SmID, &order.DateCreated, &order.OofShard)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("Order not found in DB", zap.String("order_uid", orderUID))
 		return model.Order{}, fmt.Errorf("order not found")
 	} else if err != nil {
@@ -156,7 +162,11 @@ func GetOrder(dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order,
 		logger.Error("Failed to query items from DB", zap.Error(err), zap.String("order_uid", orderUID))
 		return model.Order{}, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			logger.Error("Failed to close rows", zap.Error(err))
+		}
+	}()
 
 	for rows.Next() {
 		var item model.Item
@@ -169,5 +179,4 @@ func GetOrder(dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order,
 	}
 	logger.Info("Order retrieved from DB", zap.String("order_uid", orderUID))
 	return order, nil
-
 }
