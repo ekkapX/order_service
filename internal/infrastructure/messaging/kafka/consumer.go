@@ -74,6 +74,6 @@ func ConsumeOrders(ctx context.Context, wg *sync.WaitGroup, broker, topic, group
 			logger.Error("Failed to commit message", zap.Error(err), zap.String("order_uid", order.OrderUID))
 		}
 
-		logger.Info("Order pocessed from Kafka", zap.String("order_uid", order.OrderUID))
+		logger.Info("Order processed from Kafka", zap.String("order_uid", order.OrderUID))
 	}
 }
