@@ -41,6 +41,8 @@ func (s *Server) setupRoutes(orderHandler handlers.OrderHandler) {
 	})
 
 	s.router.GET("/order/:order_uid", orderHandler.GetByUID)
+
+	s.router.POST("/orders", orderHandler.Create)
 }
 
 func (s *Server) Start(addr string) error {

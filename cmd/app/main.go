@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"l0/internal/applicaiton/usecases"
+	"l0/internal/applicaiton/validation"
 	"l0/internal/infrastructure/cache"
 	"l0/internal/infrastructure/config"
 	"l0/internal/infrastructure/db"
@@ -25,6 +26,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			fmt.Fprintf(os.Stderr, "logger sync failed: %v\n", err)
+		}
+	}()
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -33,12 +39,6 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
-
-	defer func() {
-		if err := logger.Sync(); err != nil {
-			fmt.Fprintf(os.Stderr, "logger sync failed: %v\n", err)
-		}
-	}()
 
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.Name)
 	sqldb, err := db.NewDB(dsn, logger)
@@ -59,14 +59,16 @@ func main() {
 
 	orderRepo := postgres.NewOrderRepository(sqldb)
 
+	validator := validation.NewValidator()
+
 	getOrderUC := usecases.NewGetOrderUseCase(orderRepo, orderCache, logger)
+	saveOrderUC := usecases.NewSaveOrderUseCase(orderRepo, orderCache, validator, logger)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go kafka.ConsumeOrders(ctx, wg, cfg.Kafka.Broker, cfg.Kafka.Topic, cfg.Kafka.GroupID, sqldb, redisCache, logger)
 
-	// HTTP Server (новый)
-	orderHandler := handlers.NewOrderHandler(getOrderUC, logger)
+	orderHandler := handlers.NewOrderHandler(getOrderUC, saveOrderUC, logger)
 	server := server.NewServer(orderHandler, logger)
 
 	go func() {

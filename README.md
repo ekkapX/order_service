@@ -1,8 +1,8 @@
-# Система обработки заказов L0
+# Система обработки заказов 
 
 ![Go](https://img.shields.io/badge/Go-1.24-blue) ![Docker](https://img.shields.io/badge/Docker-Compose-blue) ![Kafka](https://img.shields.io/badge/Kafka-3.3-green) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue) ![Redis](https://img.shields.io/badge/Redis-7-red)
 
-L0 — это система обработки заказов, написанная на Go в рамках выполнения нулевого уровня Техношколы ВБ, которая принимает заказы через Kafka, сохраняет их в PostgreSQL и кэширует в Redis. Проект предоставляет HTTP API и веб-интерфейс для получения деталей заказов. Данные сохраняются персистентно, а кэш восстанавливается после перезапуска сервера, что обеспечивает надёжность и быстрый доступ к данным.
+Order Service - это система обработки заказов, написанная на Go, которая принимает заказы через Kafka, сохраняет их в PostgreSQL и кэширует в Redis. Проект предоставляет HTTP API и веб-интерфейс для получения деталей заказов. Данные сохраняются персистентно, а кэш восстанавливается после перезапуска сервера, что обеспечивает надёжность и быстрый доступ к данным.
 
 ## Возможности
 
@@ -27,7 +27,7 @@ L0 — это система обработки заказов, написанн
 ## Требования
 
 - [Docker](https://www.docker.com/get-started) и [Docker Compose](https://docs.docker.com/compose/install/)
-- [Go](https://golang.org/dl/) 1.24 или выше
+- [Go](https://golang.org/dl/) 1.25
 - [Git](https://git-scm.com/downloads)
 
 ## Установка
@@ -37,10 +37,6 @@ L0 — это система обработки заказов, написанн
    git clone https://github.com/ekkapX/l0.git
    cd l0
 
-2. **Скачайте wait-for-it.sh**:
-   ```bash
-    curl -o wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh
-    chmod +x wait-for-it.sh
 
 ## Настройка и запуск
 
@@ -138,5 +134,3 @@ curl http://localhost:8080/order/invalid123
 ## Благодарности
 
 - Проект создан как учебный для изучения распределительных систем и микросервисов
-- Это мой первый подобный опыт и я рад, что довел его до работающего состояния.
-- Спасибо за испытание, Техношкола WB!
