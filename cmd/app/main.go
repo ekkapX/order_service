@@ -66,7 +66,7 @@ func main() {
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go kafka.ConsumeOrders(ctx, wg, cfg.Kafka.Broker, cfg.Kafka.Topic, cfg.Kafka.GroupID, sqldb, redisCache, logger)
+	go kafka.ConsumeOrders(ctx, wg, cfg.Kafka.Broker, cfg.Kafka.Topic, cfg.Kafka.GroupID, saveOrderUC, logger)
 
 	orderHandler := handlers.NewOrderHandler(getOrderUC, saveOrderUC, logger)
 	server := server.NewServer(orderHandler, logger)

@@ -2,22 +2,19 @@ package kafka
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"sync"
 	"time"
 
-	"l0/internal/applicaiton/validation"
+	"l0/internal/applicaiton/usecases"
 	"l0/internal/domain/model"
-	"l0/internal/infrastructure/cache"
-	"l0/internal/infrastructure/db"
 
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
 
-func ConsumeOrders(ctx context.Context, wg *sync.WaitGroup, broker, topic, groupID string, dbConn *sql.DB, cache *cache.Cache, logger *zap.Logger) {
+func ConsumeOrders(ctx context.Context, wg *sync.WaitGroup, broker, topic, groupID string, saveOrderUC *usecases.SaveOrderUseCase, logger *zap.Logger) {
 	defer wg.Done()
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  []string{broker},
@@ -35,7 +32,6 @@ func ConsumeOrders(ctx context.Context, wg *sync.WaitGroup, broker, topic, group
 
 	logger.Info("Starting Kafka consumer", zap.String("topic", topic), zap.String("groupID", groupID))
 
-	orderValidator := validation.NewValidator()
 	for {
 		msg, err := reader.FetchMessage(ctx)
 		if err != nil {
@@ -43,37 +39,35 @@ func ConsumeOrders(ctx context.Context, wg *sync.WaitGroup, broker, topic, group
 				logger.Info("Kafka consumer context canceled, stopping...")
 				return
 			}
-			logger.Error("Fetch message from Kafka", zap.Error(err))
+			logger.Error("Failed to fetch message from Kafka", zap.Error(err))
 			continue
 		}
 
 		var order model.Order
 		if err := json.Unmarshal(msg.Value, &order); err != nil {
 			logger.Error("Failed to unmarshal order", zap.Error(err), zap.String("message", string(msg.Value)))
+			_ = reader.CommitMessages(ctx, msg)
 			continue
 		}
 
-		if err := orderValidator.ValidateOrder(order); err != nil {
-			logger.Warn("Invalid order data", zap.Error(err), zap.String("order_uid", order.OrderUID))
+		shouldCommit := true
+		if err := saveOrderUC.Execute(ctx, &order); err != nil {
+			if errors.Is(err, model.ErrOrderAlreadyExists) {
+				logger.Info("Order already exists, skipping", zap.String("order_uid", order.OrderUID))
+			} else if errors.Is(err, model.ErrInvalidOrderData) {
+				logger.Info("Invalid order data, skipping", zap.String("order_uid", order.OrderUID))
+			} else {
+				logger.Error("Failed to save order", zap.Error(err), zap.String("order_uid", order.OrderUID))
+				shouldCommit = false
+			}
+		}
+
+		if shouldCommit {
 			if err := reader.CommitMessages(ctx, msg); err != nil {
 				logger.Error("Failed to commit message", zap.Error(err), zap.String("order_uid", order.OrderUID))
+			} else {
+				logger.Info("Order processed from Kafka", zap.String("order_uid", order.OrderUID))
 			}
-			continue
 		}
-
-		if err := cache.SaveOrder(ctx, order); err != nil {
-			logger.Error("Failed to cache order", zap.Error(err), zap.String("order_uid", order.OrderUID))
-		}
-
-		if err := db.SaveOrder(dbConn, order, logger); err != nil {
-			logger.Error("Failed to save order to DB", zap.Error(err), zap.String("order_uid", order.OrderUID))
-			continue
-		}
-
-		if err := reader.CommitMessages(ctx, msg); err != nil {
-			logger.Error("Failed to commit message", zap.Error(err), zap.String("order_uid", order.OrderUID))
-		}
-
-		logger.Info("Order processed from Kafka", zap.String("order_uid", order.OrderUID))
 	}
 }
