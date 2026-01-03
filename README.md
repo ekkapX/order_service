@@ -1,6 +1,6 @@
 # Система обработки заказов 
 
-![Go](https://img.shields.io/badge/Go-1.24-blue) ![Docker](https://img.shields.io/badge/Docker-Compose-blue) ![Kafka](https://img.shields.io/badge/Kafka-3.3-green) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue) ![Redis](https://img.shields.io/badge/Redis-7-red)
+![Go](https://img.shields.io/badge/Go-1.25-blue) ![Docker](https://img.shields.io/badge/Docker-Compose-blue) ![Kafka](https://img.shields.io/badge/Kafka-3.3-green) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue) ![Redis](https://img.shields.io/badge/Redis-7-red)
 
 Order Service - это высокопроизводительный микросервис обработки заказов, написанный на Go с использованием принципов чистой архитектуры. Сервис принимает заказы через Kafka или HTTP API, валидирует их, сохраняет в PostgreSQL и кэширует в Redis для мгновенного доступа.
 
