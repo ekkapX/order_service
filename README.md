@@ -39,7 +39,7 @@ Order Service - это высокопроизводительный микрос
 1. **Клонируйте репозиторий**:
    ```bash
    git clone https://github.com/ekkapX/Order-Service.git
-   cd l0
+   cd Order-Service
 
 
 ## Настройка и запуск
