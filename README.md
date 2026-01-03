@@ -38,7 +38,7 @@ Order Service - это высокопроизводительный микрос
 
 1. **Клонируйте репозиторий**:
    ```bash
-   git clone https://github.com/ekkapX/l0.git
+   git clone https://github.com/ekkapX/Order-Service.git
    cd l0
 
 
