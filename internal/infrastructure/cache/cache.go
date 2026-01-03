@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"l0/internal/domain/model"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -40,7 +41,7 @@ func NewCache(addr string, logger *zap.Logger) *Cache {
 	return &Cache{client: client, logger: logger}
 }
 
-func (c *Cache) SaveOrder(ctx context.Context, order domain.Order) error {
+func (c *Cache) SaveOrder(ctx context.Context, order model.Order) error {
 	data, err := json.Marshal(order)
 	if err != nil {
 		c.logger.Error("Faiiled to marshal order for cache", zap.Error(err), zap.String("order_uid", order.OrderUID))
@@ -55,7 +56,7 @@ func (c *Cache) SaveOrder(ctx context.Context, order domain.Order) error {
 	return nil
 }
 
-func (c *Cache) GetOrder(ctx context.Context, orderUID string) (*domain.Order, error) {
+func (c *Cache) GetOrder(ctx context.Context, orderUID string) (*model.Order, error) {
 	data, err := c.client.Get(ctx, orderUID).Bytes()
 	if errors.Is(err, redis.Nil) {
 		c.logger.Info("Order not found in cache", zap.String("order_uid", orderUID))
@@ -66,7 +67,7 @@ func (c *Cache) GetOrder(ctx context.Context, orderUID string) (*domain.Order, e
 		return nil, nil
 	}
 
-	var order domain.Order
+	var order model.Order
 	if err := json.Unmarshal(data, &order); err != nil {
 		c.logger.Error("Failde to unmarshal order from cache", zap.Error(err), zap.String("order_uid", orderUID))
 		return nil, err
@@ -91,7 +92,7 @@ func (c *Cache) RestoreFromDB(ctx context.Context, dbConn *sql.DB) error {
 	}()
 
 	for rows.Next() {
-		var order domain.Order
+		var order model.Order
 		err := rows.Scan(
 			&order.OrderUID, &order.TrackNumber, &order.Entry, &order.Locale,
 			&order.InternalSignature, &order.CustomerID, &order.DeliveryService,
@@ -136,7 +137,7 @@ func (c *Cache) RestoreFromDB(ctx context.Context, dbConn *sql.DB) error {
 			continue
 		}
 		for itemRows.Next() {
-			var item domain.Item
+			var item model.Item
 			err := itemRows.Scan(
 				&item.ChrtID, &item.TrackNumber, &item.Price, &item.Rid, &item.Name,
 				&item.Sale, &item.Size, &item.TotalPrice, &item.NmID, &item.Brand, &item.Status,

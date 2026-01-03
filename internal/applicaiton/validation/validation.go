@@ -2,7 +2,7 @@ package validation
 
 import (
 	"fmt"
-	"l0/internal/domain"
+	"l0/internal/domain/model"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -17,7 +17,7 @@ func NewValidator() *Validator {
 	}
 }
 
-func (v *Validator) ValidateOrder(order domain.Order) error {
+func (v *Validator) ValidateOrder(order model.Order) error {
 	err := v.validate.Struct(order)
 	if err != nil {
 		if _, ok := err.(*validator.InvalidValidationError); ok {

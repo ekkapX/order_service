@@ -24,7 +24,7 @@ func NewSaveOrderUseCase(orderRepo repository.OrderRepository, orderCache reposi
 func (uc *SaveOrderUseCase) Execute(ctx context.Context, order *model.Order) error {
 	if err := uc.validator.ValidateOrder(*order); err != nil {
 		uc.logger.Warn("Order validation failed", zap.String("order_uid", order.OrderUID), zap.Error(err))
-		return fmt.Errorf("%w: %v", model.ErrInvalidOrderData)
+		return fmt.Errorf("validation failed: %w", model.ErrInvalidOrderData)
 	}
 
 	exists, err := uc.orderRepo.Exists(ctx, order.OrderUID)
