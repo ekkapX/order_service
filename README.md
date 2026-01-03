@@ -24,11 +24,10 @@ Order Service - это высокопроизводительный микрос
 
 ## API Эндпоинты
 
-Сервис предоставляет REST API (префикс `/api/v1`):
+Сервис предоставляет REST API:
 
-- `GET /api/v1/orders/:order_uid` — Получить заказ по ID (из кэша или БД).
-- `POST /api/v1/orders` — Создать новый заказ.
-- `GET /api/v1/health` — Проверка состояния сервиса.
+- `GET /order/:order_uid` — Получить заказ по ID (из кэша или БД).
+- `POST /orders` — Создать новый заказ.
 
 ## Требования
 
@@ -63,7 +62,7 @@ Order Service - это высокопроизводительный микрос
 Вы можете отправить заказ напрямую через POST-запрос:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/orders \
+curl -X POST http://localhost:8080/orders \
   -H "Content-Type: application/json" \
   -d '{
     "order_uid": "api_test_1",
@@ -114,7 +113,7 @@ curl -X POST http://localhost:8080/api/v1/orders \
   }'
 ```
 
-### Отправка тестового заказа в Kafka
+### 2. Отправка тестового заказа в Kafka
    Для тестирования отправки заказа используйте консоль Kafka:
    ```bash 
    docker exec -it l0-kafka kafka-console-producer --bootstrap-server kafka:9092 --topic orders
