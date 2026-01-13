@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"l0/internal/applicaiton/usecases"
+	"l0/internal/application/usecases"
 	"l0/internal/domain/model"
 
 	"github.com/segmentio/kafka-go"
@@ -52,11 +52,12 @@ func ConsumeOrders(ctx context.Context, wg *sync.WaitGroup, broker, topic, group
 
 		shouldCommit := true
 		if err := saveOrderUC.Execute(ctx, &order); err != nil {
-			if errors.Is(err, model.ErrOrderAlreadyExists) {
+			switch {
+			case errors.Is(err, model.ErrOrderAlreadyExists):
 				logger.Info("Order already exists, skipping", zap.String("order_uid", order.OrderUID))
-			} else if errors.Is(err, model.ErrInvalidOrderData) {
+			case errors.Is(err, model.ErrInvalidOrderData):
 				logger.Info("Invalid order data, skipping", zap.String("order_uid", order.OrderUID))
-			} else {
+			default:
 				logger.Error("Failed to save order", zap.Error(err), zap.String("order_uid", order.OrderUID))
 				shouldCommit = false
 			}

@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"errors"
 	"fmt"
 	"l0/internal/domain/model"
 
@@ -20,10 +21,10 @@ func NewValidator() *Validator {
 func (v *Validator) ValidateOrder(order model.Order) error {
 	err := v.validate.Struct(order)
 	if err != nil {
-		if _, ok := err.(*validator.InvalidValidationError); ok {
+		var invalidErr *validator.InvalidValidationError
+		if errors.As(err, &invalidErr) {
 			return err
 		}
-
 		return fmt.Errorf("validation failed: %w", err)
 	}
 	return nil

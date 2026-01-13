@@ -3,7 +3,7 @@ package usecases
 import (
 	"context"
 	"fmt"
-	"l0/internal/applicaiton/validation"
+	"l0/internal/application/validation"
 	"l0/internal/domain/model"
 	"l0/internal/domain/repository"
 
