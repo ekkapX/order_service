@@ -1,0 +1,47 @@
+{
+  "order_uid": "test_new_123",
+  "track_number": "TRACK123",
+  "entry": "WBIL",
+  "delivery": {
+    "name": "Test User",
+    "phone": "+79991234567",
+    "zip": "123456",
+    "city": "Moscow",
+    "address": "Test Street 1",
+    "region": "Moscow",
+    "email": "test@example.com"
+  },
+  "payment": {
+    "transaction": "test_new_123",
+    "currency": "USD",
+    "provider": "wbpay",
+    "amount": 1500,
+    "payment_dt": 1637907727,
+    "bank": "alpha",
+    "delivery_cost": 500,
+    "goods_total": 1000,
+    "custom_fee": 0
+  },
+  "items": [
+    {
+      "chrt_id": 9934930,
+      "track_number": "TRACK123",
+      "price": 500,
+      "rid": "ab4219087a764ae0btest",
+      "name": "Test Item",
+      "sale": 10,
+      "size": "M",
+      "total_price": 450,
+      "nm_id": 2389212,
+      "brand": "Test Brand",
+      "status": 202
+    }
+  ],
+  "locale": "en",
+  "customer_id": "test_customer",
+  "delivery_service": "meest",
+  "shardkey": "9",
+  "sm_id": 99,
+  "date_created": "2021-11-26T06:22:19Z",
+  "oof_shard": "1"
+}

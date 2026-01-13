@@ -2,19 +2,21 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
-	"l0/internal/api"
+	"l0/internal/applicaiton/usecases"
+	"l0/internal/applicaiton/validation"
 	"l0/internal/infrastructure/cache"
 	"l0/internal/infrastructure/config"
 	"l0/internal/infrastructure/db"
+	"l0/internal/infrastructure/http/handlers"
+	"l0/internal/infrastructure/http/server"
 	"l0/internal/infrastructure/messaging/kafka"
+	"l0/internal/infrastructure/persistence/postgres"
 
 	"go.uber.org/zap"
 )
@@ -24,6 +26,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			fmt.Fprintf(os.Stderr, "logger sync failed: %v\n", err)
+		}
+	}()
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -32,12 +39,6 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
-
-	defer func() {
-		if err := logger.Sync(); err != nil {
-			fmt.Fprintf(os.Stderr, "logger sync failed: %v\n", err)
-		}
-	}()
 
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.Name)
 	sqldb, err := db.NewDB(dsn, logger)
@@ -48,21 +49,31 @@ func main() {
 	db.RunMigrations(sqldb, logger)
 
 	redisCache := cache.NewCache(cfg.Redis.Addr, logger)
+	orderCache := cache.NewOrderCache(redisCache)
+	defer orderCache.Close()
 
 	if err := redisCache.RestoreFromDB(ctx, sqldb); err != nil {
 		logger.Error("Failed to restore cache from DB", zap.Error(err))
 	}
 	logger.Info("Cache restoration attempted")
 
+	orderRepo := postgres.NewOrderRepository(sqldb)
+
+	validator := validation.NewValidator()
+
+	getOrderUC := usecases.NewGetOrderUseCase(orderRepo, orderCache, logger)
+	saveOrderUC := usecases.NewSaveOrderUseCase(orderRepo, orderCache, validator, logger)
+
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go kafka.ConsumeOrders(ctx, wg, cfg.Kafka.Broker, cfg.Kafka.Topic, cfg.Kafka.GroupID, sqldb, redisCache, logger)
+	go kafka.ConsumeOrders(ctx, wg, cfg.Kafka.Broker, cfg.Kafka.Topic, cfg.Kafka.GroupID, saveOrderUC, logger)
 
-	apiServer := api.NewServer(redisCache, sqldb, logger)
+	orderHandler := handlers.NewOrderHandler(getOrderUC, saveOrderUC, logger)
+	server := server.NewServer(orderHandler, logger)
 
 	go func() {
-		if err := apiServer.Start(cfg.HTTPServerPort); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Fatal("Failed to start HTTTP server", zap.Error(err))
+		if err := server.Start(cfg.HTTPServerPort); err != nil {
+			logger.Fatal("Failed to start HTTP server", zap.Error(err))
 		}
 	}()
 
@@ -74,7 +85,7 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer shutdownCancel()
 
-	if err := apiServer.Shutdown(shutdownCtx); err != nil {
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Failed to shutdown HTTP server", zap.Error(err))
 	} else {
 		logger.Info("HTTP server stopped gracefully")
@@ -83,16 +94,6 @@ func main() {
 	logger.Info("Waiting for Kafka consumer to stop...")
 	wg.Wait()
 	logger.Info("Kafka consumer stopped")
-
-	if err := sqldb.Close(); err != nil {
-		logger.Error("Failed to close DB connection", zap.Error(err))
-	}
-	logger.Info("DB connection closed")
-
-	if err := redisCache.Close(); err != nil {
-		logger.Error("Failed to close Redis connection", zap.Error(err))
-	}
-	logger.Info("Redis connection closed")
 
 	logger.Info("Application stopped successfully")
 }

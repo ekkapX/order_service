@@ -1,34 +1,38 @@
-# Система обработки заказов L0
+# Система обработки заказов 
 
 ![Go](https://img.shields.io/badge/Go-1.24-blue) ![Docker](https://img.shields.io/badge/Docker-Compose-blue) ![Kafka](https://img.shields.io/badge/Kafka-3.3-green) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue) ![Redis](https://img.shields.io/badge/Redis-7-red)
 
-L0 — это система обработки заказов, написанная на Go в рамках выполнения нулевого уровня Техношколы ВБ, которая принимает заказы через Kafka, сохраняет их в PostgreSQL и кэширует в Redis. Проект предоставляет HTTP API и веб-интерфейс для получения деталей заказов. Данные сохраняются персистентно, а кэш восстанавливается после перезапуска сервера, что обеспечивает надёжность и быстрый доступ к данным.
+Order Service - это высокопроизводительный микросервис обработки заказов, написанный на Go с использованием принципов чистой архитектуры. Сервис принимает заказы через Kafka или HTTP API, валидирует их, сохраняет в PostgreSQL и кэширует в Redis для мгновенного доступа.
 
-## Возможности
+## Ключевые возможности
 
-- **Потребитель Kafka**: Обрабатывает заказы из топика `orders` и сохраняет их в PostgreSQL и Redis.
-- **Хранилище PostgreSQL**: Персистентное хранение заказов, информации о доставке, оплате и товарах.
-- **Кэш Redis**: Быстрый доступ к заказам через кэширование, с восстановлением из PostgreSQL при запуске.
-- **HTTP API**: Эндпоинт `GET /order/:order_uid` для получения деталей заказа.
-- **Веб-интерфейс**: Позволяет ввести `order_uid` и отобразить детали заказа в формате JSON.
-- **Контейнеризация**: Полностью контейнеризировано с помощью Docker Compose.
-- **Надёжность**: Использует `wait-for-it.sh` для ожидания готовности Kafka, исключая проблемы синхронизации.
-- **Безопасность**: Настроен Gin в режиме `Release` с отключением доверия прокси для продакшен-безопасности.
+- **Чистая архитектура**: Четкое разделение на слои (Domain, Application, Infrastructure).
+- **Многоканальный прием**: Прием заказов как через Kafka (Consumer), так и через HTTP API (`POST`).
+- **Надежность**:
+  - **Graceful Shutdown**: Корректное завершение работы сервера и консьюмеров.
+  - **Restore Cache**: Автоматическое восстановление кэша из БД при старте сервиса.
+  - **Retry Policy**: Повторные попытки при временных сбоях БД.
+- **Валидация**: Строгая валидация входящих данных (структура, email, форматы телефонов).
+- **Производительность**: Оптимизированные SQL-запросы с использованием индексов.
+- **Инфраструктура**: Полная контейнеризация через Docker Compose.
 
 ## Архитектура
 
-Система состоит из следующих компонентов:
-- **Kafka**: Брокер сообщений для получения заказов.
-- **PostgreSQL**: Персистентное хранилище для заказов, доставки, оплаты и товаров.
-- **Redis**: Кэш в памяти для быстрого доступа к заказам.
-- **Go-сервер**: Обрабатывает HTTP API и предоставляет веб-интерфейс.
-- **Docker Compose**: Оркестрирует Kafka, Zookeeper, PostgreSQL, Redis и сервер.
+1.  **Domain**: Доменные сущности и интерфейсы репозиториев.
+2.  **Application**: Бизнес-логика (сохранение заказа, получение, валидация).
+3.  **Infrastructure**: Реализация работы с БД (Postgres), Кэшем (Redis), Брокером (Kafka) и HTTP (Gin)
+
+## API Эндпоинты
+
+Сервис предоставляет REST API:
+
+- `GET /order/:order_uid` — Получить заказ по ID (из кэша или БД).
+- `POST /orders` — Создать новый заказ.
 
 ## Требования
 
-- [Docker](https://www.docker.com/get-started) и [Docker Compose](https://docs.docker.com/compose/install/)
-- [Go](https://golang.org/dl/) 1.24 или выше
-- [Git](https://git-scm.com/downloads)
+- Docker & Docker Compose
+- Golang 1.25
 
 ## Установка
 
@@ -37,10 +41,6 @@ L0 — это система обработки заказов, написанн
    git clone https://github.com/ekkapX/l0.git
    cd l0
 
-2. **Скачайте wait-for-it.sh**:
-   ```bash
-    curl -o wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh
-    chmod +x wait-for-it.sh
 
 ## Настройка и запуск
 
@@ -57,7 +57,63 @@ L0 — это система обработки заказов, написанн
 
 ## Работа с системой
 
-### Отправка тестового заказа в Kafka
+### 1. Создание заказа через HTTP API 
+
+Вы можете отправить заказ напрямую через POST-запрос:
+
+```bash
+curl -X POST http://localhost:8080/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "order_uid": "api_test_1",
+    "track_number": "TRACKAPI1",
+    "entry": "API",
+    "delivery": {
+      "name": "Test User",
+      "phone": "+79991234567",
+      "zip": "123456",
+      "city": "Moscow",
+      "address": "Red Square 1",
+      "region": "Moscow",
+      "email": "test@example.com"
+    },
+    "payment": {
+      "transaction": "api_test_1",
+      "currency": "USD",
+      "provider": "wbpay",
+      "amount": 1000,
+      "payment_dt": 1637907728,
+      "bank": "alpha",
+      "delivery_cost": 0,
+      "goods_total": 1000,
+      "custom_fee": 0
+    },
+    "items": [
+      {
+        "chrt_id": 123,
+        "track_number": "TRACKAPI1",
+        "price": 1000,
+        "rid": "rid1",
+        "name": "Test Item",
+        "sale": 0,
+        "size": "M",
+        "total_price": 1000,
+        "nm_id": 12345,
+        "brand": "TestBrand",
+        "status": 202
+      }
+    ],
+    "locale": "en",
+    "customer_id": "cust1",
+    "delivery_service": "meest",
+    "shardkey": "9",
+    "sm_id": 99,
+    "date_created": "2021-11-26T06:22:19Z",
+    "oof_shard": "1"
+  }'
+```
+
+### 2. Отправка тестового заказа в Kafka
    Для тестирования отправки заказа используйте консоль Kafka:
    ```bash 
    docker exec -it l0-kafka kafka-console-producer --bootstrap-server kafka:9092 --topic orders
@@ -130,13 +186,7 @@ curl http://localhost:8080/order/invalid123
 ```
 Ожидаемый ответ - {"error":"order not found"}
 
-## Возможные улучшения
-1. Добавить валидацию входных данных при обработке заказа
-2. Добавить unit- и integration-тесты
+## В ближайших планах (TODO)
+1. Добавить unit и integration тесты
+2. Реализовать полноценный producer, DLQ
 3. Добавить Swagger/OpenAPI документацию к API
-
-## Благодарности
-
-- Проект создан как учебный для изучения распределительных систем и микросервисов
-- Это мой первый подобный опыт и я рад, что довел его до работающего состояния.
-- Спасибо за испытание, Техношкола WB!
