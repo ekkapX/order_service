@@ -134,24 +134,91 @@ func (r *OrderRepository) GetByUID(ctx context.Context, orderUID string) (*model
 }
 
 func (r *OrderRepository) GetAll(ctx context.Context) ([]*model.Order, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT order_uid FROM orders`)
+	query := `SELECT 
+            o.order_uid, o.track_number, o.entry, o.locale, o.internal_signature,
+            o.customer_id, o.delivery_service, o.shardkey, o.sm_id, o.date_created, o.oof_shard,
+            d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
+            p.transaction, p.request_id, p.currency, p.provider, p.amount,
+            p.payment_dt, p.bank, p.delivery_cost, p.goods_total, p.custom_fee
+        FROM orders o
+        JOIN delivery d ON o.order_uid = d.order_uid
+        JOIN payment p ON o.order_uid = p.order_uid
+        ORDER BY o.order_uid`
+
+	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get orders: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
-	var orders []*model.Order
+	ordersMap := make(map[string]*model.Order)
+	var orderUIDs []string
+
 	for rows.Next() {
-		var orderUID string
-		if err := rows.Scan(&orderUID); err != nil {
+		var order model.Order
+
+		if err := rows.Scan(
+			&order.OrderUID, &order.TrackNumber, &order.Entry, &order.Locale,
+			&order.InternalSignature, &order.CustomerID, &order.DeliveryService,
+			&order.Shardkey, &order.SmID, &order.DateCreated, &order.OofShard,
+			&order.Delivery.Name, &order.Delivery.Phone, &order.Delivery.Zip,
+			&order.Delivery.City, &order.Delivery.Address, &order.Delivery.Region,
+			&order.Delivery.Email,
+			&order.Payment.Transaction, &order.Payment.RequestID, &order.Payment.Currency,
+			&order.Payment.Provider, &order.Payment.Amount, &order.Payment.PaymentDt,
+			&order.Payment.Bank, &order.Payment.DeliveryCost, &order.Payment.GoodsTotal,
+			&order.Payment.CustomFee,
+		); err != nil {
 			return nil, fmt.Errorf("failed to scan order: %w", err)
 		}
-		order, err := r.GetByUID(ctx, orderUID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get order: %w", err)
-		}
-		orders = append(orders, order)
+		order.Items = []model.Item{}
+		ordersMap[order.OrderUID] = &order
+		orderUIDs = append(orderUIDs, order.OrderUID)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterating orders: %w", err)
+	}
+
+	if len(orderUIDs) == 0 {
+		return []*model.Order{}, nil
+	}
+
+	itemsQuery := `
+	SELECT order_uid, chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status
+	FROM items
+	WHERE order_uid = ANY($1)
+	ORDER BY order_uid, chrt_id`
+
+	itemsRows, err := r.db.QueryContext(ctx, itemsQuery, orderUIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get items: %w", err)
+	}
+	defer func() { _ = itemsRows.Close() }()
+
+	for itemsRows.Next() {
+		var item model.Item
+		var orderUID string
+
+		if err := itemsRows.Scan(
+			&orderUID, &item.ChrtID, &item.TrackNumber, &item.Price, &item.Rid, &item.Name,
+			&item.Sale, &item.Size, &item.TotalPrice, &item.NmID, &item.Brand, &item.Status,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan item: %w", err)
+		}
+		if order, exists := ordersMap[orderUID]; exists {
+			order.Items = append(order.Items, item)
+		}
+	}
+	if err := itemsRows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterating items: %w", err)
+	}
+
+	orders := make([]*model.Order, 0, len(ordersMap))
+	for _, uid := range orderUIDs {
+		orders = append(orders, ordersMap[uid])
+	}
+
 	return orders, nil
 }
 

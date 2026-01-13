@@ -8,8 +8,8 @@ import (
 	"sync"
 	"syscall"
 
-	"l0/internal/applicaiton/usecases"
-	"l0/internal/applicaiton/validation"
+	"l0/internal/application/usecases"
+	"l0/internal/application/validation"
 	"l0/internal/infrastructure/cache"
 	"l0/internal/infrastructure/config"
 	"l0/internal/infrastructure/db"
@@ -41,7 +41,7 @@ func main() {
 	defer cancel()
 
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.Name)
-	sqldb, err := db.NewDB(dsn, logger)
+	sqldb, err := db.NewDB(ctx, dsn, logger)
 	if err != nil {
 		logger.Fatal("DB connection failed", zap.Error(err))
 	}
@@ -50,7 +50,7 @@ func main() {
 
 	redisCache := cache.NewCache(cfg.Redis.Addr, logger)
 	orderCache := cache.NewOrderCache(redisCache)
-	defer orderCache.Close()
+	defer func() { _ = orderCache.Close() }()
 
 	if err := redisCache.RestoreFromDB(ctx, sqldb); err != nil {
 		logger.Error("Failed to restore cache from DB", zap.Error(err))

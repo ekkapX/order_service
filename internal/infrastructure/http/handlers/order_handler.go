@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"errors"
-	"l0/internal/applicaiton/usecases"
+	"l0/internal/application/usecases"
 	"l0/internal/domain/model"
 	"net/http"
 

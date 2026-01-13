@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -11,13 +12,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewDB(dsn string, logger *zap.Logger) (*sql.DB, error) {
+func NewDB(ctx context.Context, dsn string, logger *zap.Logger) (*sql.DB, error) {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		logger.Error("Failed to open DB connection", zap.Error(err))
 		return nil, err
 	}
-	if err := db.Ping(); err != nil {
+	if err := db.PingContext(ctx); err != nil {
 		logger.Error("Failed to ping DB", zap.Error(err))
 		return nil, err
 	}
@@ -25,16 +26,11 @@ func NewDB(dsn string, logger *zap.Logger) (*sql.DB, error) {
 	return db, nil
 }
 
-func SaveOrder(db *sql.DB, order model.Order, logger *zap.Logger) error {
-	if order.OrderUID == "" {
-		logger.Error("Order UID is empty")
-		return fmt.Errorf("order_uid cannot be empty")
-	}
-
+func SaveOrder(ctx context.Context, db *sql.DB, order model.Order, logger *zap.Logger) error {
 	logger.Info("Starting to save order", zap.String("order_uid", order.OrderUID))
 
 	var exists bool
-	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM orders WHERE order_uid = $1)", order.OrderUID).Scan(&exists)
+	err := db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM orders WHERE order_uid = $1)", order.OrderUID).Scan(&exists)
 	if err != nil {
 		logger.Error("Failed to check if order exists", zap.Error(err), zap.String("order_uid", order.OrderUID))
 		return err
@@ -44,7 +40,7 @@ func SaveOrder(db *sql.DB, order model.Order, logger *zap.Logger) error {
 		return nil
 	}
 
-	tx, err := db.Begin()
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		logger.Error("Failed to start transaction", zap.Error(err))
 		return err
@@ -55,7 +51,7 @@ func SaveOrder(db *sql.DB, order model.Order, logger *zap.Logger) error {
 		}
 	}()
 
-	_, err = tx.Exec(`
+	_, err = tx.ExecContext(ctx, `
         INSERT INTO orders (
             order_uid, track_number, entry, locale, internal_signature, 
             customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
@@ -67,7 +63,7 @@ func SaveOrder(db *sql.DB, order model.Order, logger *zap.Logger) error {
 		return err
 	}
 
-	_, err = tx.Exec(`
+	_, err = tx.ExecContext(ctx, `
         INSERT INTO delivery (
             order_uid, name, phone, zip, city, address, region, email
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
@@ -78,7 +74,7 @@ func SaveOrder(db *sql.DB, order model.Order, logger *zap.Logger) error {
 		return err
 	}
 
-	_, err = tx.Exec(`
+	_, err = tx.ExecContext(ctx, `
         INSERT INTO payment (
             order_uid, transaction, request_id, currency, provider, amount, 
             payment_dt, bank, delivery_cost, goods_total, custom_fee
@@ -92,7 +88,7 @@ func SaveOrder(db *sql.DB, order model.Order, logger *zap.Logger) error {
 	}
 
 	for _, item := range order.Items {
-		_, err = tx.Exec(`
+		_, err = tx.ExecContext(ctx, `
             INSERT INTO items (
                 order_uid, chrt_id, track_number, price, rid, name, sale, 
                 size, total_price, nm_id, brand, status
@@ -113,10 +109,10 @@ func SaveOrder(db *sql.DB, order model.Order, logger *zap.Logger) error {
 	return nil
 }
 
-func GetOrder(dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order, error) {
+func GetOrder(ctx context.Context, dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order, error) {
 	var order model.Order
 
-	err := dbConn.QueryRow(`
+	err := dbConn.QueryRowContext(ctx, `
 	SELECT order_uid, track_number, entry, locale, internal_signature, customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
 	FROM orders
 	WHERE order_uid = $1`,
@@ -130,7 +126,7 @@ func GetOrder(dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order,
 		return model.Order{}, err
 	}
 
-	err = dbConn.QueryRow(`
+	err = dbConn.QueryRowContext(ctx, `
         SELECT name, phone, zip, city, address, region, email
         FROM delivery
         WHERE order_uid = $1`,
@@ -141,7 +137,7 @@ func GetOrder(dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order,
 		return model.Order{}, err
 	}
 
-	err = dbConn.QueryRow(`
+	err = dbConn.QueryRowContext(ctx, `
         SELECT transaction, request_id, currency, provider, amount, payment_dt, bank, delivery_cost, goods_total, custom_fee
         FROM payment
         WHERE order_uid = $1`,
@@ -152,7 +148,7 @@ func GetOrder(dbConn *sql.DB, orderUID string, logger *zap.Logger) (model.Order,
 		return model.Order{}, err
 	}
 
-	rows, err := dbConn.Query(`
+	rows, err := dbConn.QueryContext(ctx, `
         SELECT chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status
         FROM items
         WHERE order_uid = $1`,
