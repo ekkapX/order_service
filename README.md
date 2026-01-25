@@ -7,7 +7,7 @@ Order Service - это высокопроизводительный микрос
 ## Ключевые возможности
 
 - **Чистая архитектура**: Четкое разделение на слои (Domain, Application, Infrastructure).
-- **Многоканальный прием**: Прием заказов как через Kafka (Consumer), так и через HTTP API (`POST`).
+- **Многоканальный прием**: Прием заказов как через Kafka (Consumer)
 - **Надежность**:
   - **Graceful Shutdown**: Корректное завершение работы сервера и консьюмеров.
   - **Restore Cache**: Автоматическое восстановление кэша из БД при старте сервиса.
@@ -27,7 +27,6 @@ Order Service - это высокопроизводительный микрос
 Сервис предоставляет HTTP API:
 
 - `GET /order/:order_uid` — Получить заказ по ID (из кэша или БД).
-- `POST /orders` — Создать новый заказ.
 
 ## Требования
 
@@ -57,63 +56,7 @@ Order Service - это высокопроизводительный микрос
 
 ## Работа с системой
 
-### 1. Создание заказа через HTTP API 
-
-Вы можете отправить заказ напрямую через POST-запрос:
-
-```bash
-curl -X POST http://localhost:8080/orders \
-  -H "Content-Type: application/json" \
-  -d '{
-    "order_uid": "api_test_1",
-    "track_number": "TRACKAPI1",
-    "entry": "API",
-    "delivery": {
-      "name": "Test User",
-      "phone": "+79991234567",
-      "zip": "123456",
-      "city": "Moscow",
-      "address": "Red Square 1",
-      "region": "Moscow",
-      "email": "test@example.com"
-    },
-    "payment": {
-      "transaction": "api_test_1",
-      "currency": "USD",
-      "provider": "wbpay",
-      "amount": 1000,
-      "payment_dt": 1637907728,
-      "bank": "alpha",
-      "delivery_cost": 0,
-      "goods_total": 1000,
-      "custom_fee": 0
-    },
-    "items": [
-      {
-        "chrt_id": 123,
-        "track_number": "TRACKAPI1",
-        "price": 1000,
-        "rid": "rid1",
-        "name": "Test Item",
-        "sale": 0,
-        "size": "M",
-        "total_price": 1000,
-        "nm_id": 12345,
-        "brand": "TestBrand",
-        "status": 202
-      }
-    ],
-    "locale": "en",
-    "customer_id": "cust1",
-    "delivery_service": "meest",
-    "shardkey": "9",
-    "sm_id": 99,
-    "date_created": "2021-11-26T06:22:19Z",
-    "oof_shard": "1"
-  }'
-```
-
-### 2. Отправка тестового заказа в Kafka
+### 1. Отправка тестового заказа в Kafka
    Для тестирования отправки заказа используйте консоль Kafka:
    ```bash 
    docker exec -it l0-kafka kafka-console-producer --bootstrap-server kafka:9092 --topic orders

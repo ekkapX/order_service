@@ -3,9 +3,10 @@ package server
 import (
 	"context"
 	"errors"
-	"l0/internal/infrastructure/http/handlers"
 	"net/http"
 	"time"
+
+	"l0/internal/infrastructure/http/handlers"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -41,8 +42,6 @@ func (s *Server) setupRoutes(orderHandler handlers.OrderHandler) {
 	})
 
 	s.router.GET("/order/:order_uid", orderHandler.GetByUID)
-
-	s.router.POST("/orders", orderHandler.Create)
 }
 
 func (s *Server) Start(addr string) error {

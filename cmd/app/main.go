@@ -68,7 +68,7 @@ func main() {
 	wg.Add(1)
 	go kafka.ConsumeOrders(ctx, wg, cfg.Kafka.Broker, cfg.Kafka.Topic, cfg.Kafka.GroupID, saveOrderUC, logger)
 
-	orderHandler := handlers.NewOrderHandler(getOrderUC, saveOrderUC, logger)
+	orderHandler := handlers.NewOrderHandler(getOrderUC, logger)
 	serverHTTP := server.NewServer(orderHandler, logger)
 
 	go func() {
