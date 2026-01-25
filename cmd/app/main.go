@@ -69,10 +69,10 @@ func main() {
 	go kafka.ConsumeOrders(ctx, wg, cfg.Kafka.Broker, cfg.Kafka.Topic, cfg.Kafka.GroupID, saveOrderUC, logger)
 
 	orderHandler := handlers.NewOrderHandler(getOrderUC, saveOrderUC, logger)
-	server := server.NewServer(orderHandler, logger)
+	serverHTTP := server.NewServer(orderHandler, logger)
 
 	go func() {
-		if err := server.Start(cfg.HTTPServerPort); err != nil {
+		if err := serverHTTP.Start(cfg.HTTPServerPort); err != nil {
 			logger.Fatal("Failed to start HTTP server", zap.Error(err))
 		}
 	}()
@@ -85,7 +85,7 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer shutdownCancel()
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
+	if err := serverHTTP.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Failed to shutdown HTTP server", zap.Error(err))
 	} else {
 		logger.Info("HTTP server stopped gracefully")
