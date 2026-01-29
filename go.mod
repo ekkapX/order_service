@@ -10,8 +10,10 @@ require (
 	go.uber.org/zap v1.27.1
 )
 
+require github.com/brianvoe/gofakeit/v7 v7.14.0
+
 require (
-	github.com/caarlos0/env/v11 v11.3.1 
+	github.com/caarlos0/env/v11 v11.3.1
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
@@ -29,7 +31,7 @@ require (
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.28.0 
+	github.com/go-playground/validator/v10 v10.28.0
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

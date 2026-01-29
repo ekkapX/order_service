@@ -32,7 +32,7 @@ func main() {
 		}
 	}()
 
-	cfg, err := config.LoadConfig()
+	cfg, err := config.LoadConsumerConfig()
 	if err != nil {
 		logger.Fatal("Failed to load config", zap.Error(err))
 	}
@@ -72,7 +72,7 @@ func main() {
 	serverHTTP := server.NewServer(orderHandler, logger)
 
 	go func() {
-		if err := serverHTTP.Start(cfg.HTTPServerPort); err != nil {
+		if err := serverHTTP.Start(cfg.HTTP.Port); err != nil {
 			logger.Fatal("Failed to start HTTP server", zap.Error(err))
 		}
 	}()
@@ -82,7 +82,7 @@ func main() {
 
 	logger.Info("Shutdown signal received, shutting down...")
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
 	defer shutdownCancel()
 
 	if err := serverHTTP.Shutdown(shutdownCtx); err != nil {
