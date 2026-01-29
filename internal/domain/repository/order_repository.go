@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
+
 	"l0/internal/domain/model"
 )
 
+//go:generate mockgen -source=order_repository.go -destination=mocks/order_repository.go -package=mocks
 type OrderRepository interface {
 	Save(ctx context.Context, order *model.Order) error
 	GetByUID(ctx context.Context, orderUID string) (*model.Order, error)

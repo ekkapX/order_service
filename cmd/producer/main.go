@@ -93,7 +93,7 @@ func sendOrder(ctx context.Context, writer *kafka.Writer, logger *zap.Logger) er
 		return fmt.Errorf("failed to write message: %w", err)
 	}
 
-	logger.Debug("Order sent", zap.String("order_uid", order.OrderUID))
+	logger.Info("Order sent", zap.String("order_uid", order.OrderUID))
 	return nil
 }
 
