@@ -36,7 +36,7 @@ func NewCache(addr string, logger *zap.Logger) *Cache {
 			logger.Info("Connected to Redis", zap.String("addr", addr))
 			break
 		}
-		logger.Warn("Failed to connet to Redis, retryng...", zap.Error(err), zap.Int("attempt", i+1))
+		logger.Warn("Failed to connect to Redis, retrying...", zap.Error(err), zap.Int("attempt", i+1))
 		time.Sleep(2 * time.Second)
 	}
 	return &Cache{client: client, logger: logger}
@@ -45,11 +45,11 @@ func NewCache(addr string, logger *zap.Logger) *Cache {
 func (c *Cache) SaveOrder(ctx context.Context, order model.Order) error {
 	data, err := json.Marshal(order)
 	if err != nil {
-		c.logger.Error("Faiiled to marshal order for cache", zap.Error(err), zap.String("order_uid", order.OrderUID))
+		c.logger.Error("Failed to marshal order for cache", zap.Error(err), zap.String("order_uid", order.OrderUID))
 		return err
 	}
 	if err := c.client.Set(ctx, order.OrderUID, data, 0).Err(); err != nil {
-		c.logger.Error("Failde to save order to Redis", zap.Error(err), zap.String("order_uid", order.OrderUID))
+		c.logger.Error("Failed to save order to Redis", zap.Error(err), zap.String("order_uid", order.OrderUID))
 		return err
 	}
 

@@ -180,3 +180,42 @@ func (mr *MockOrderCacheMockRecorder) Set(ctx, order any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockOrderCache)(nil).Set), ctx, order)
 }
+
+// MockOrderUseCaseProvider is a mock of OrderUseCaseProvider interface.
+type MockOrderUseCaseProvider struct {
+	ctrl     *gomock.Controller
+	recorder *MockOrderUseCaseProviderMockRecorder
+	isgomock struct{}
+}
+
+// MockOrderUseCaseProviderMockRecorder is the mock recorder for MockOrderUseCaseProvider.
+type MockOrderUseCaseProviderMockRecorder struct {
+	mock *MockOrderUseCaseProvider
+}
+
+// NewMockOrderUseCaseProvider creates a new mock instance.
+func NewMockOrderUseCaseProvider(ctrl *gomock.Controller) *MockOrderUseCaseProvider {
+	mock := &MockOrderUseCaseProvider{ctrl: ctrl}
+	mock.recorder = &MockOrderUseCaseProviderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockOrderUseCaseProvider) EXPECT() *MockOrderUseCaseProviderMockRecorder {
+	return m.recorder
+}
+
+// Execute mocks base method.
+func (m *MockOrderUseCaseProvider) Execute(ctx context.Context, orderUID string) (*model.Order, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Execute", ctx, orderUID)
+	ret0, _ := ret[0].(*model.Order)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Execute indicates an expected call of Execute.
+func (mr *MockOrderUseCaseProviderMockRecorder) Execute(ctx, orderUID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockOrderUseCaseProvider)(nil).Execute), ctx, orderUID)
+}

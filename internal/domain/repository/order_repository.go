@@ -20,3 +20,7 @@ type OrderCache interface {
 	Delete(ctx context.Context, orderUID string) error
 	Close() error
 }
+
+type OrderUseCaseProvider interface {
+	Execute(ctx context.Context, orderUID string) (*model.Order, error)
+}

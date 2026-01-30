@@ -4,19 +4,19 @@ import (
 	"errors"
 	"net/http"
 
-	"l0/internal/application/usecases"
 	"l0/internal/domain/model"
+	"l0/internal/domain/repository"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
 type OrderHandler struct {
-	getOrderUC *usecases.GetOrderUseCase
+	getOrderUC repository.OrderUseCaseProvider
 	logger     *zap.Logger
 }
 
-func NewOrderHandler(getOrderUC *usecases.GetOrderUseCase, logger *zap.Logger) *OrderHandler {
+func NewOrderHandler(getOrderUC repository.OrderUseCaseProvider, logger *zap.Logger) *OrderHandler {
 	return &OrderHandler{getOrderUC: getOrderUC, logger: logger}
 }
 
