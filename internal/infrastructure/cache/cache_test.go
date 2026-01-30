@@ -35,7 +35,7 @@ func setupTestCache(t *testing.T) *Cache {
 	c := NewCache(endpoint, logger)
 
 	t.Cleanup(func() {
-		c.Close()
+		_ = c.Close()
 	})
 
 	return c
@@ -155,5 +155,5 @@ func TestOrderCache_Serialization_EdgeCases(t *testing.T) {
 	retrieved, err := c.GetOrder(ctx, orderEmptyItems.OrderUID)
 	require.NoError(t, err)
 
-	assert.Len(t, retrieved.Items, 0)
+	assert.Empty(t, retrieved.Items)
 }

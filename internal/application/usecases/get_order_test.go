@@ -9,6 +9,7 @@ import (
 	"l0/internal/domain/repository/mocks"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 )
@@ -41,7 +42,7 @@ func TestGetOrderUseCase_Execute_FoundInCache(t *testing.T) {
 
 	order, err := uc.Execute(ctx, uid)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, order)
 	assert.Equal(t, uid, order.OrderUID)
 	assert.Equal(t, "TRACK-001", order.TrackNumber)
@@ -79,7 +80,7 @@ func TestGetOrderUseCase_Execute_CacheMiss_FoundInDB(t *testing.T) {
 
 	order, err := uc.Execute(ctx, uid)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, order)
 	assert.Equal(t, uid, order.OrderUID)
 }
@@ -108,7 +109,7 @@ func TestGetOrderUseCase_Execute_NotFound(t *testing.T) {
 
 	order, err := uc.Execute(ctx, uid)
 
-	assert.ErrorIs(t, err, model.ErrOrderNotFound)
+	require.ErrorIs(t, err, model.ErrOrderNotFound)
 	assert.Nil(t, order)
 }
 
@@ -134,7 +135,7 @@ func TestGetOrderUseCase_Execute_CacheSetFailure_ReturnsData(t *testing.T) {
 
 	order, err := uc.Execute(ctx, uid)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, order)
 	assert.Equal(t, uid, order.OrderUID)
 }
@@ -157,6 +158,6 @@ func TestGetOrderUseCase_Execute_DBError(t *testing.T) {
 
 	order, err := uc.Execute(ctx, uid)
 
-	assert.Error(t, err)
-	assert.Nil(t, order)
+	require.Error(t, err)
+	require.Nil(t, order)
 }

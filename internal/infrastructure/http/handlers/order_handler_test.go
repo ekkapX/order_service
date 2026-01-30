@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -50,7 +51,8 @@ func TestOrderHandler_GetByUID_Success(t *testing.T) {
 		Return(expectedOrder, nil).
 		Times(1)
 
-	req, _ := http.NewRequest(http.MethodGet, "/order/"+uid, nil)
+	ctx := context.Background()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/order/"+uid, nil)
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -73,7 +75,8 @@ func TestOrderHandler_GetByUID_NotFound(t *testing.T) {
 		Return(nil, model.ErrOrderNotFound).
 		Times(1)
 
-	req, _ := http.NewRequest(http.MethodGet, "/order/"+uid, nil)
+	ctx := context.Background()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/order/"+uid, nil)
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -91,7 +94,8 @@ func TestOrderHandler_GetByUID_InternalError(t *testing.T) {
 		Return(nil, errors.New("db connection lost")).
 		Times(1)
 
-	req, _ := http.NewRequest(http.MethodGet, "/order/"+uid, nil)
+	ctx := context.Background()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/order/"+uid, nil)
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)

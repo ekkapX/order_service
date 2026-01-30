@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"os"
 	"strings"
 	"testing"
 
@@ -17,42 +18,50 @@ import (
 	tcPostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
-func setupTestDB(t *testing.T) *sql.DB {
-	t.Helper()
+var (
+	testDB        *sql.DB
+	testContainer *tcPostgres.PostgresContainer
+)
+
+func TestMain(m *testing.M) {
 	ctx := context.Background()
 
-	pgContainer, err := tcPostgres.Run(ctx,
+	var err error
+	testContainer, err = tcPostgres.Run(ctx,
 		"postgres:18-alpine",
 		tcPostgres.WithDatabase("test_db"),
 		tcPostgres.WithUsername("user"),
 		tcPostgres.WithPassword("password"),
 		tcPostgres.BasicWaitStrategies(),
 	)
-	require.NoError(t, err, "failed to start postgres container")
+	if err != nil {
+		panic("failed to start container: " + err.Error())
+	}
+	connStr, _ := testContainer.ConnectionString(ctx, "sslmode=disable")
 
-	t.Cleanup(func() {
-		if err := pgContainer.Terminate(ctx); err != nil {
-			t.Logf("failed to terminate container: %v", err)
-		}
-	})
+	testDB, err = sql.Open("pgx", connStr)
+	if err != nil {
+		panic("failed to open db: " + err.Error())
+	}
 
-	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err, "failed to get connection string")
+	if err := goose.Up(testDB, "../../../../migrations"); err != nil {
+		panic("failed to migrate: " + err.Error())
+	}
 
-	db, err := sql.Open("pgx", connStr)
-	require.NoError(t, err, "failed to open db connection")
+	code := m.Run()
 
-	err = db.Ping()
-	require.NoError(t, err, "failed to ping db")
+	_ = testDB.Close()
+	_ = testContainer.Terminate(ctx)
 
-	err = goose.Up(db, "../../../../migrations")
-	require.NoError(t, err, "failed to apply migrations")
+	os.Exit(code)
+}
 
-	t.Cleanup(func() {
-		db.Close()
-	})
-
-	return db
+func setupTestDB(t *testing.T) *sql.DB {
+	_, err := testDB.ExecContext(context.Background(), "TRUNCATE orders, payment, delivery CASCADE")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return testDB
 }
 
 func createTestOrder(t *testing.T) model.Order {
@@ -215,15 +224,15 @@ func TestOrderRepository_Save_RollbackOnFailure(t *testing.T) {
 	require.Error(t, err)
 
 	var count int
-	err = db.QueryRow("SELECT COUNT(*) FROM orders WHERE order_uid = $1", order.OrderUID).Scan(&count)
+	err = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM orders WHERE order_uid = $1", order.OrderUID).Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, 0, count, "Orders table should be empty after rollback")
 
-	err = db.QueryRow("SELECT COUNT(*) FROM payment WHERE order_uid = $1", order.OrderUID).Scan(&count)
+	err = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM payment WHERE order_uid = $1", order.OrderUID).Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, 0, count, "Payment table should be empty after rollback")
 
-	err = db.QueryRow("SELECT COUNT(*) FROM delivery WHERE order_uid = $1", order.OrderUID).Scan(&count)
+	err = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM delivery WHERE order_uid = $1", order.OrderUID).Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, 0, count, "Delivery table should be empty after rollback")
 }
@@ -280,7 +289,7 @@ func TestOrderRepository_Save_ContextCanceled(t *testing.T) {
 	err := repo.Save(ctx, &order)
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	require.ErrorIs(t, err, context.Canceled)
 
 	exists, _ := repo.Exists(context.Background(), order.OrderUID)
 	assert.False(t, exists)
@@ -304,6 +313,6 @@ func TestOrderRepository_Save_BoundaryValues(t *testing.T) {
 	retrieved, err := repo.GetByUID(ctx, order.OrderUID)
 	require.NoError(t, err)
 
-	assert.Equal(t, 50, len(retrieved.OrderUID))
-	assert.Equal(t, 50, len(retrieved.TrackNumber))
+	assert.Len(t, retrieved.OrderUID, 50)
+	assert.Len(t, retrieved.TrackNumber, 50)
 }
