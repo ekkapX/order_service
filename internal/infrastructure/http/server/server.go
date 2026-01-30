@@ -3,16 +3,17 @@ package server
 import (
 	"context"
 	"errors"
-	"l0/internal/infrastructure/http/handlers"
 	"net/http"
 	"time"
+
+	"l0/internal/infrastructure/http/handlers"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
 type Server struct {
-	router     *gin.Engine
+	Router     *gin.Engine
 	httpServer *http.Server
 	logger     *zap.Logger
 }
@@ -28,25 +29,23 @@ func NewServer(orderHandler *handlers.OrderHandler, logger *zap.Logger) *Server 
 
 	server := &Server{
 		logger: logger,
-		router: r,
+		Router: r,
 	}
 	server.setupRoutes(*orderHandler)
 	return server
 }
 
 func (s *Server) setupRoutes(orderHandler handlers.OrderHandler) {
-	s.router.Static("/web", "./web")
-	s.router.GET("/", func(c *gin.Context) {
+	s.Router.Static("/web", "./web")
+	s.Router.GET("/", func(c *gin.Context) {
 		c.File("./web/index.html")
 	})
 
-	s.router.GET("/order/:order_uid", orderHandler.GetByUID)
-
-	s.router.POST("/orders", orderHandler.Create)
+	s.Router.GET("/order/:order_uid", orderHandler.GetByUID)
 }
 
 func (s *Server) Start(addr string) error {
-	s.httpServer = &http.Server{Addr: addr, Handler: s.router, ReadHeaderTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second}
+	s.httpServer = &http.Server{Addr: addr, Handler: s.Router, ReadHeaderTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second}
 	s.logger.Info("Starting HTTP server", zap.String("address", addr))
 
 	if err := s.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

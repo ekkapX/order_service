@@ -88,6 +88,19 @@ services:
       - l0-network
     restart: unless-stopped
     command: ["./wait-for-it.sh", "${KAFKA_BROKER}", "--timeout=60", "--", "./server"]
+  
+  producer:
+    build:
+      context: .
+      dockerfile: Dockerfile.producer
+    container_name: l0-producer
+    env_file: .env
+    depends_on:
+      kafka:
+        condition: service_started
+    networks:
+      - l0-network
+    restart: unless-stopped
 
 networks:
   l0-network:

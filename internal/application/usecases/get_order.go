@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"l0/internal/domain/model"
 	"l0/internal/domain/repository"
 
@@ -38,8 +39,7 @@ func (uc *GetOrderUseCase) Execute(ctx context.Context, orderUID string) (*model
 	}
 
 	if err := uc.orderCache.Set(ctx, order); err != nil {
-		uc.logger.Error("Failed to save order to cache", zap.Error(err), zap.String("order_uid", orderUID))
-		return nil, fmt.Errorf("failed to save order to cache: %w", err)
+		uc.logger.Warn("Failed to update cache, continuing", zap.Error(err), zap.String("order_uid", orderUID))
 	}
 
 	uc.logger.Debug("Order retrieved from DB", zap.String("order_uid", orderUID))

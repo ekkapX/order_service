@@ -5,24 +5,38 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	"l0/internal/domain/model"
 	"l0/internal/domain/repository"
+
+	"go.uber.org/zap"
 )
 
 type OrderRepository struct {
-	db *sql.DB
+	db     *sql.DB
+	logger *zap.Logger
 }
 
-func NewOrderRepository(db *sql.DB) repository.OrderRepository {
-	return &OrderRepository{db: db}
+func NewOrderRepository(db *sql.DB, logger *zap.Logger) repository.OrderRepository {
+	return &OrderRepository{db: db, logger: logger}
 }
 
-func (r *OrderRepository) Save(ctx context.Context, order *model.Order) error {
+func (r *OrderRepository) Save(ctx context.Context, order *model.Order) (err error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer func() { _ = tx.Rollback() }()
+
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+		} else if err != nil {
+			if rbErr := tx.Rollback(); rbErr != nil {
+				r.logger.Error("Failed to rollback transaction",
+					zap.Error(rbErr), zap.String("order_uid", order.OrderUID))
+			}
+		}
+	}()
 
 	_, err = tx.ExecContext(ctx, `
         INSERT INTO orders (
@@ -34,6 +48,7 @@ func (r *OrderRepository) Save(ctx context.Context, order *model.Order) error {
 	if err != nil {
 		return fmt.Errorf("failed to insert order: %w", err)
 	}
+
 	_, err = tx.ExecContext(ctx, `
         INSERT INTO delivery (order_uid, name, phone, zip, city, address, region, email)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
@@ -67,7 +82,8 @@ func (r *OrderRepository) Save(ctx context.Context, order *model.Order) error {
 			return fmt.Errorf("failed to insert item: %w", err)
 		}
 	}
-	if err := tx.Commit(); err != nil {
+
+	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 	return nil
@@ -118,7 +134,13 @@ func (r *OrderRepository) GetByUID(ctx context.Context, orderUID string) (*model
 	if err != nil {
 		return nil, fmt.Errorf("failed to get items: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			r.logger.Warn("Failed to close rows in GetByUID",
+				zap.Error(closeErr), zap.String("order_uid", orderUID))
+		}
+	}()
 
 	for rows.Next() {
 		var item model.Item
@@ -128,6 +150,9 @@ func (r *OrderRepository) GetByUID(ctx context.Context, orderUID string) (*model
 			return nil, fmt.Errorf("failed to scan item: %w", err)
 		}
 		order.Items = append(order.Items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error during rows iteration: %w", err)
 	}
 
 	return &order, nil
@@ -149,7 +174,12 @@ func (r *OrderRepository) GetAll(ctx context.Context) ([]*model.Order, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get orders: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			r.logger.Warn("Failed to close rows in GetAll", zap.Error(closeErr))
+		}
+	}()
 
 	ordersMap := make(map[string]*model.Order)
 	var orderUIDs []string
@@ -177,7 +207,7 @@ func (r *OrderRepository) GetAll(ctx context.Context) ([]*model.Order, error) {
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("failed to iterating orders: %w", err)
+		return nil, fmt.Errorf("failed iterating orders: %w", err)
 	}
 
 	if len(orderUIDs) == 0 {
@@ -185,16 +215,21 @@ func (r *OrderRepository) GetAll(ctx context.Context) ([]*model.Order, error) {
 	}
 
 	itemsQuery := `
-	SELECT order_uid, chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status
-	FROM items
-	WHERE order_uid = ANY($1)
-	ORDER BY order_uid, chrt_id`
+    SELECT order_uid, chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status
+    FROM items
+    WHERE order_uid = ANY($1)
+    ORDER BY order_uid, chrt_id`
 
 	itemsRows, err := r.db.QueryContext(ctx, itemsQuery, orderUIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get items: %w", err)
 	}
-	defer func() { _ = itemsRows.Close() }()
+
+	defer func() {
+		if closeErr := itemsRows.Close(); closeErr != nil {
+			r.logger.Warn("Failed to close item rows in GetAll", zap.Error(closeErr))
+		}
+	}()
 
 	for itemsRows.Next() {
 		var item model.Item
@@ -211,7 +246,7 @@ func (r *OrderRepository) GetAll(ctx context.Context) ([]*model.Order, error) {
 		}
 	}
 	if err := itemsRows.Err(); err != nil {
-		return nil, fmt.Errorf("failed to iterating items: %w", err)
+		return nil, fmt.Errorf("failed iterating items: %w", err)
 	}
 
 	orders := make([]*model.Order, 0, len(ordersMap))

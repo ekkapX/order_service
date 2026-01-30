@@ -46,7 +46,9 @@ func ConsumeOrders(ctx context.Context, wg *sync.WaitGroup, broker, topic, group
 		var order model.Order
 		if err := json.Unmarshal(msg.Value, &order); err != nil {
 			logger.Error("Failed to unmarshal order", zap.Error(err), zap.String("message", string(msg.Value)))
-			_ = reader.CommitMessages(ctx, msg)
+			if err := reader.CommitMessages(ctx, msg); err != nil {
+				logger.Error("Failed to commit message", zap.Error(err), zap.String("order_uid", order.OrderUID))
+			}
 			continue
 		}
 

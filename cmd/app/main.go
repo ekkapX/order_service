@@ -32,7 +32,7 @@ func main() {
 		}
 	}()
 
-	cfg, err := config.LoadConfig()
+	cfg, err := config.LoadConsumerConfig()
 	if err != nil {
 		logger.Fatal("Failed to load config", zap.Error(err))
 	}
@@ -50,14 +50,18 @@ func main() {
 
 	redisCache := cache.NewCache(cfg.Redis.Addr, logger)
 	orderCache := cache.NewOrderCache(redisCache)
-	defer func() { _ = orderCache.Close() }()
+	defer func() {
+		if err := orderCache.Close(); err != nil {
+			logger.Error("Failed to close order cache", zap.Error(err))
+		}
+	}()
 
 	if err := redisCache.RestoreFromDB(ctx, sqldb); err != nil {
 		logger.Error("Failed to restore cache from DB", zap.Error(err))
 	}
 	logger.Info("Cache restoration attempted")
 
-	orderRepo := postgres.NewOrderRepository(sqldb)
+	orderRepo := postgres.NewOrderRepository(sqldb, logger)
 
 	validator := validation.NewValidator()
 
@@ -68,11 +72,11 @@ func main() {
 	wg.Add(1)
 	go kafka.ConsumeOrders(ctx, wg, cfg.Kafka.Broker, cfg.Kafka.Topic, cfg.Kafka.GroupID, saveOrderUC, logger)
 
-	orderHandler := handlers.NewOrderHandler(getOrderUC, saveOrderUC, logger)
-	server := server.NewServer(orderHandler, logger)
+	orderHandler := handlers.NewOrderHandler(getOrderUC, logger)
+	serverHTTP := server.NewServer(orderHandler, logger)
 
 	go func() {
-		if err := server.Start(cfg.HTTPServerPort); err != nil {
+		if err := serverHTTP.Start(cfg.HTTP.Port); err != nil {
 			logger.Fatal("Failed to start HTTP server", zap.Error(err))
 		}
 	}()
@@ -82,10 +86,10 @@ func main() {
 
 	logger.Info("Shutdown signal received, shutting down...")
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
 	defer shutdownCancel()
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
+	if err := serverHTTP.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Failed to shutdown HTTP server", zap.Error(err))
 	} else {
 		logger.Info("HTTP server stopped gracefully")
