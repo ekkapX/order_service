@@ -35,7 +35,9 @@ func setupTestCache(t *testing.T) *Cache {
 	c := NewCache(endpoint, logger)
 
 	t.Cleanup(func() {
-		_ = c.Close()
+		if err := c.Close(); err != nil {
+			t.Logf("failed to close redis client: %v", err)
+		}
 	})
 
 	return c

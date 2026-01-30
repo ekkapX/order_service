@@ -50,14 +50,18 @@ func main() {
 
 	redisCache := cache.NewCache(cfg.Redis.Addr, logger)
 	orderCache := cache.NewOrderCache(redisCache)
-	defer func() { _ = orderCache.Close() }()
+	defer func() {
+		if err := orderCache.Close(); err != nil {
+			logger.Error("Failed to close order cache", zap.Error(err))
+		}
+	}()
 
 	if err := redisCache.RestoreFromDB(ctx, sqldb); err != nil {
 		logger.Error("Failed to restore cache from DB", zap.Error(err))
 	}
 	logger.Info("Cache restoration attempted")
 
-	orderRepo := postgres.NewOrderRepository(sqldb)
+	orderRepo := postgres.NewOrderRepository(sqldb, logger)
 
 	validator := validation.NewValidator()
 

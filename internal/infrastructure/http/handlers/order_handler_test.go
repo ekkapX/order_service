@@ -52,13 +52,14 @@ func TestOrderHandler_GetByUID_Success(t *testing.T) {
 		Times(1)
 
 	ctx := context.Background()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/order/"+uid, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/order/"+uid, nil)
+	require.NoError(t, err)
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	var result model.Order
-	err := json.Unmarshal(w.Body.Bytes(), &result)
+	err = json.Unmarshal(w.Body.Bytes(), &result)
 	require.NoError(t, err)
 	assert.Equal(t, uid, result.OrderUID)
 	assert.Equal(t, "TRACK-SUCCESS", result.TrackNumber)
@@ -76,7 +77,8 @@ func TestOrderHandler_GetByUID_NotFound(t *testing.T) {
 		Times(1)
 
 	ctx := context.Background()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/order/"+uid, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/order/"+uid, nil)
+	require.NoError(t, err)
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -95,7 +97,8 @@ func TestOrderHandler_GetByUID_InternalError(t *testing.T) {
 		Times(1)
 
 	ctx := context.Background()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/order/"+uid, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/order/"+uid, nil)
+	require.NoError(t, err)
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)

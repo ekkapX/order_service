@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -16,18 +17,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	tcPostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
-var (
-	testDB        *sql.DB
-	testContainer *tcPostgres.PostgresContainer
-)
+var testDB *sql.DB
 
 func TestMain(m *testing.M) {
+	os.Exit(testMainWrapper(m))
+}
+
+func testMainWrapper(m *testing.M) int {
 	ctx := context.Background()
 
-	var err error
-	testContainer, err = tcPostgres.Run(ctx,
+	container, err := tcPostgres.Run(ctx,
 		"postgres:18-alpine",
 		tcPostgres.WithDatabase("test_db"),
 		tcPostgres.WithUsername("user"),
@@ -35,32 +38,52 @@ func TestMain(m *testing.M) {
 		tcPostgres.BasicWaitStrategies(),
 	)
 	if err != nil {
-		panic("failed to start container: " + err.Error())
+		fmt.Fprintf(os.Stderr, "failed to start container: %v\n", err)
+		return 1
 	}
-	connStr, _ := testContainer.ConnectionString(ctx, "sslmode=disable")
+	defer func() {
+		if termErr := container.Terminate(ctx); termErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to terminate container: %v\n", termErr)
+		}
+	}()
 
-	testDB, err = sql.Open("pgx", connStr)
+	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
-		panic("failed to open db: " + err.Error())
+		fmt.Fprintf(os.Stderr, "failed to get connection string: %v\n", err)
+		return 1
 	}
 
-	if err := goose.Up(testDB, "../../../../migrations"); err != nil {
-		panic("failed to migrate: " + err.Error())
+	db, err := sql.Open("pgx", connStr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open db: %v\n", err)
+		return 1
+	}
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to close test database: %v\n", closeErr)
+		}
+	}()
+
+	if err := goose.Up(db, "../../../../migrations"); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to migrate: %v\n", err)
+		return 1
 	}
 
-	code := m.Run()
+	testDB = db
 
-	_ = testDB.Close()
-	_ = testContainer.Terminate(ctx)
+	return m.Run()
+}
 
-	os.Exit(code)
+func createTestLogger(t *testing.T) *zap.Logger {
+	return zaptest.NewLogger(t)
 }
 
 func setupTestDB(t *testing.T) *sql.DB {
-	_, err := testDB.ExecContext(context.Background(), "TRUNCATE orders, payment, delivery CASCADE")
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Helper()
+
+	_, err := testDB.ExecContext(context.Background(), "TRUNCATE orders, payment, delivery, items CASCADE")
+	require.NoError(t, err, "failed to truncate tables")
+
 	return testDB
 }
 
@@ -119,7 +142,8 @@ func createTestOrder(t *testing.T) model.Order {
 
 func TestOrderRepository_CRUD(t *testing.T) {
 	db := setupTestDB(t)
-	repo := NewOrderRepository(db)
+	logger := createTestLogger(t)
+	repo := NewOrderRepository(db, logger)
 	ctx := context.Background()
 
 	order := createTestOrder(t)
@@ -140,7 +164,8 @@ func TestOrderRepository_CRUD(t *testing.T) {
 
 func TestOrderRepository_GetByUID_NotFound(t *testing.T) {
 	db := setupTestDB(t)
-	repo := NewOrderRepository(db)
+	logger := createTestLogger(t)
+	repo := NewOrderRepository(db, logger)
 	ctx := context.Background()
 
 	_, err := repo.GetByUID(ctx, "non-existent-uid")
@@ -149,8 +174,8 @@ func TestOrderRepository_GetByUID_NotFound(t *testing.T) {
 
 func TestOrderRepository_Save_DuplicateKey(t *testing.T) {
 	db := setupTestDB(t)
-
-	repo := NewOrderRepository(db)
+	logger := createTestLogger(t)
+	repo := NewOrderRepository(db, logger)
 	ctx := context.Background()
 
 	order := createTestOrder(t)
@@ -163,8 +188,8 @@ func TestOrderRepository_Save_DuplicateKey(t *testing.T) {
 
 func TestOrderRepository_Save_MultipleItems(t *testing.T) {
 	db := setupTestDB(t)
-
-	repo := NewOrderRepository(db)
+	logger := createTestLogger(t)
+	repo := NewOrderRepository(db, logger)
 	ctx := context.Background()
 
 	order := createTestOrder(t)
@@ -205,22 +230,19 @@ func TestOrderRepository_Save_MultipleItems(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, retrieved.Items, 3)
-
 	assert.ElementsMatch(t, order.Items, retrieved.Items)
 }
 
 func TestOrderRepository_Save_RollbackOnFailure(t *testing.T) {
 	db := setupTestDB(t)
-
-	repo := NewOrderRepository(db)
+	logger := createTestLogger(t)
+	repo := NewOrderRepository(db, logger)
 	ctx := context.Background()
 
 	order := createTestOrder(t)
-
 	order.Items[0].Name = strings.Repeat("x", 200)
 
 	err := repo.Save(ctx, &order)
-
 	require.Error(t, err)
 
 	var count int
@@ -239,8 +261,8 @@ func TestOrderRepository_Save_RollbackOnFailure(t *testing.T) {
 
 func TestOrderRepository_GetAll_Success(t *testing.T) {
 	db := setupTestDB(t)
-
-	repo := NewOrderRepository(db)
+	logger := createTestLogger(t)
+	repo := NewOrderRepository(db, logger)
 	ctx := context.Background()
 
 	orders := []model.Order{
@@ -267,8 +289,8 @@ func TestOrderRepository_GetAll_Success(t *testing.T) {
 
 func TestOrderRepository_GetAll_EmptyDatabase(t *testing.T) {
 	db := setupTestDB(t)
-
-	repo := NewOrderRepository(db)
+	logger := createTestLogger(t)
+	repo := NewOrderRepository(db, logger)
 	ctx := context.Background()
 
 	retrievedOrders, err := repo.GetAll(ctx)
@@ -278,8 +300,8 @@ func TestOrderRepository_GetAll_EmptyDatabase(t *testing.T) {
 
 func TestOrderRepository_Save_ContextCanceled(t *testing.T) {
 	db := setupTestDB(t)
-
-	repo := NewOrderRepository(db)
+	logger := createTestLogger(t)
+	repo := NewOrderRepository(db, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -291,14 +313,15 @@ func TestOrderRepository_Save_ContextCanceled(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorIs(t, err, context.Canceled)
 
-	exists, _ := repo.Exists(context.Background(), order.OrderUID)
+	exists, err := repo.Exists(context.Background(), order.OrderUID)
+	require.NoError(t, err)
 	assert.False(t, exists)
 }
 
 func TestOrderRepository_Save_BoundaryValues(t *testing.T) {
 	db := setupTestDB(t)
-
-	repo := NewOrderRepository(db)
+	logger := createTestLogger(t)
+	repo := NewOrderRepository(db, logger)
 	ctx := context.Background()
 
 	order := createTestOrder(t)
