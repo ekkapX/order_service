@@ -64,6 +64,9 @@ services:
     networks:
       - l0-network
     restart: unless-stopped
+    command: redis-server --appendonly yes 
+    volumes:
+      - redis_data:/data  
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -107,3 +110,4 @@ networks:
     driver: bridge
 volumes:
   postgres_data:
+  redis_data:
